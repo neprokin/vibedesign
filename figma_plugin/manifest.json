@@ -1,0 +1,11 @@
+{
+  "name": "Figma Automation",
+  "id": "figma-automation",
+  "api": "1.0.0",
+  "main": "dist/plugin.js",
+  "ui": "ui.html",
+  "capabilities": [],
+  "enablePrivatePluginApi": false,
+  "enableProposedApi": false,
+  "build": "npm run build"
+} 

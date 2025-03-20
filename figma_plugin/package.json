@@ -1,0 +1,16 @@
+{
+  "name": "figma-automation-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin for design automation",
+  "main": "dist/plugin.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@figma/plugin-typings": "^1.82.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+} 
