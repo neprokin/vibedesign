@@ -53,6 +53,17 @@ export const defaultConfig: MCPServerOptions = {
   websocketUrl: 'ws://localhost:8765',
   verbose: false,
   figmaApiCacheTTL: 300, // 5 минут по умолчанию
+  
+  // Настройки AI
+  aiProvider: 'openai',
+  aiModel: 'gpt-4',
+  aiTemperature: 0.7,
+  aiMaxTokens: 4096,
+  aiTimeout: 60000,
+  
+  // Настройки кэширования LLM
+  llmCacheEnabled: true,
+  llmCacheTTL: 3600, // 1 час
 };
 
 /**
@@ -70,6 +81,25 @@ export const getConfig = (): MCPServerOptions => {
     figmaOAuthClientSecret: getEnvString('FIGMA_OAUTH_CLIENT_SECRET'),
     figmaOAuthRedirectUri: getEnvString('FIGMA_OAUTH_REDIRECT_URI'),
     figmaApiCacheTTL: getEnvNumber('FIGMA_API_CACHE_TTL', defaultConfig.figmaApiCacheTTL),
+    
+    // Настройки AI
+    aiProvider: getEnvString('AI_PROVIDER', defaultConfig.aiProvider),
+    aiModel: getEnvString('AI_MODEL', defaultConfig.aiModel),
+    aiTemperature: getEnvNumber('AI_TEMPERATURE', defaultConfig.aiTemperature),
+    aiMaxTokens: getEnvNumber('AI_MAX_TOKENS', defaultConfig.aiMaxTokens),
+    aiTimeout: getEnvNumber('AI_TIMEOUT', defaultConfig.aiTimeout),
+    
+    // Настройки кэширования LLM
+    llmCacheEnabled: getEnvBoolean('LLM_CACHE_ENABLED', defaultConfig.llmCacheEnabled),
+    llmCacheTTL: getEnvNumber('LLM_CACHE_TTL', defaultConfig.llmCacheTTL),
+    
+    // Настройки OpenAI
+    openaiApiKey: getEnvString('OPENAI_API_KEY'),
+    openaiOrganization: getEnvString('OPENAI_ORGANIZATION'),
+    openaiBaseUrl: getEnvString('OPENAI_BASE_URL'),
+    
+    // Настройки Anthropic
+    anthropicApiKey: getEnvString('ANTHROPIC_API_KEY'),
   };
 };
 

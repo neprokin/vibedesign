@@ -24,6 +24,36 @@ export interface MCPServerOptions {
   figmaOAuthRedirectUri?: string;
   /** Время жизни кэша для Figma API (в секундах) */
   figmaApiCacheTTL?: number;
+  
+  // Настройки AI
+  /** Провайдер AI (openai, anthropic, local) */
+  aiProvider?: string;
+  /** Модель AI по умолчанию */
+  aiModel?: string;
+  /** Температура генерации */
+  aiTemperature?: number;
+  /** Максимальное количество токенов */
+  aiMaxTokens?: number;
+  /** Таймаут API-запросов в мс */
+  aiTimeout?: number;
+  
+  // Настройки кэширования LLM
+  /** Включить кэширование LLM-запросов */
+  llmCacheEnabled?: boolean;
+  /** Время жизни кэша LLM в секундах */
+  llmCacheTTL?: number;
+  
+  // Настройки OpenAI
+  /** API-ключ для OpenAI */
+  openaiApiKey?: string;
+  /** ID организации OpenAI */
+  openaiOrganization?: string;
+  /** Базовый URL для OpenAI API */
+  openaiBaseUrl?: string;
+  
+  // Настройки Anthropic
+  /** API-ключ для Anthropic */
+  anthropicApiKey?: string;
 }
 
 /**
