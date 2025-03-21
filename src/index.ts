@@ -7,6 +7,8 @@ import { getComponentsDescription } from './tools/get-components';
 import { getDocumentInfoDescription } from './tools/get-document-info';
 import { getSelectionDescription } from './tools/get-selection';
 import { createFrameDescription } from './tools/create-frame';
+import { createRectangleDescription } from './tools/create-rectangle';
+import { createTextDescription } from './tools/create-text';
 
 /**
  * Запуск MCP сервера
@@ -68,6 +70,20 @@ async function startServer(): Promise<void> {
       createFrameDescription.handler,
       createFrameDescription.description,
       createFrameDescription.parameterSchema
+    );
+
+    server.registerTool(
+      createRectangleDescription.name,
+      createRectangleDescription.handler,
+      createRectangleDescription.description,
+      createRectangleDescription.parameterSchema
+    );
+
+    server.registerTool(
+      createTextDescription.name,
+      createTextDescription.handler,
+      createTextDescription.description,
+      createTextDescription.parameterSchema
     );
 
     // Запускаем сервер

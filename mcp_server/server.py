@@ -92,6 +92,92 @@ async def analyze_design(figma_data: dict):
         logger.error(f"Error analyzing design: {e}")
         raise
 
+@mcp.tool()
+async def create_rectangle(
+    file_key: str,
+    parent_id: str,
+    name: str,
+    width: float,
+    height: float,
+    x: float = 0,
+    y: float = 0,
+    fills: list = None,
+    properties: dict = None
+):
+    """Создание прямоугольника в Figma через плагин"""
+    try:
+        fills = fills or []
+        properties = properties or {}
+        
+        await ws_server.broadcast("CREATE_RECTANGLE", {
+            "fileKey": file_key,
+            "parentId": parent_id,
+            "name": name,
+            "width": width,
+            "height": height,
+            "x": x,
+            "y": y,
+            "fills": fills,
+            "properties": properties
+        })
+        logger.info(f"Successfully sent create rectangle command for parent: {parent_id}")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error creating Figma rectangle: {e}")
+        raise
+
+@mcp.tool()
+async def create_text(
+    file_key: str,
+    parent_id: str,
+    text: str,
+    name: str = None,
+    x: float = 0,
+    y: float = 0,
+    font: str = None,
+    font_size: float = None,
+    color: dict = None,
+    text_align: str = None,
+    font_weight: int = None,
+    properties: dict = None
+):
+    """Создание текстового элемента в Figma через плагин"""
+    try:
+        properties = properties or {}
+        
+        # Если имя не указано, используем первые 20 символов текста
+        if not name:
+            name = text[:20]
+            
+        payload = {
+            "fileKey": file_key,
+            "parentId": parent_id,
+            "text": text,
+            "name": name,
+            "x": x,
+            "y": y,
+            "properties": properties
+        }
+        
+        # Добавляем опциональные параметры, если они указаны
+        if font:
+            payload["font"] = font
+        if font_size:
+            payload["fontSize"] = font_size
+        if color:
+            payload["color"] = color
+        if text_align:
+            payload["textAlign"] = text_align
+        if font_weight:
+            payload["fontWeight"] = font_weight
+            
+        await ws_server.broadcast("CREATE_TEXT", payload)
+        logger.info(f"Successfully sent create text command for parent: {parent_id}")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error creating Figma text: {e}")
+        raise
+
 # Регистрация обработчиков WebSocket
 @ws_server.register_handler("NODE_UPDATED")
 async def handle_node_updated(websocket, payload):

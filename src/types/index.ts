@@ -145,6 +145,44 @@ export interface CreateFrameParams {
 }
 
 /**
+ * Параметры для create_rectangle
+ */
+export interface CreateRectangleParams {
+  /** Ключ файла */
+  fileKey: string;
+  /** ID родительской ноды */
+  parentId: string;
+  /** Имя прямоугольника */
+  name: string;
+  /** Ширина прямоугольника */
+  width: number;
+  /** Высота прямоугольника */
+  height: number;
+  /** Координата X */
+  x?: number;
+  /** Координата Y */
+  y?: number;
+  /** Заливка */
+  fills?: Array<{
+    /** Тип заливки */
+    type: 'SOLID' | 'GRADIENT_LINEAR' | 'GRADIENT_RADIAL' | 'GRADIENT_ANGULAR' | 'GRADIENT_DIAMOND' | 'IMAGE' | 'EMOJI';
+    /** Цвет (для SOLID) */
+    color?: { r: number; g: number; b: number; a?: number };
+    /** Прозрачность */
+    opacity?: number;
+    /** Параметры градиента (для градиентных заливок) */
+    gradientStops?: Array<{
+      position: number;
+      color: { r: number; g: number; b: number; a?: number };
+    }>;
+    /** ID изображения (для IMAGE) */
+    imageRef?: string;
+  }>;
+  /** Дополнительные свойства */
+  properties?: Record<string, any>;
+}
+
+/**
  * Параметры для create_text
  */
 export interface CreateTextParams {
