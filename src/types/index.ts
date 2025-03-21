@@ -91,6 +91,16 @@ export interface GetStylesParams {
 }
 
 /**
+ * Параметры для get_components
+ */
+export interface GetComponentsParams {
+  /** Ключ файла */
+  fileKey: string;
+  /** ID компонента (опционально) */
+  componentId?: string;
+}
+
+/**
  * Параметры для create_frame
  */
 export interface CreateFrameParams {
