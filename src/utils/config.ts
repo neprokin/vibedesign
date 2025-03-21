@@ -52,6 +52,7 @@ export const defaultConfig: MCPServerOptions = {
   figmaApiKey: '',
   websocketUrl: 'ws://localhost:8765',
   verbose: false,
+  figmaApiCacheTTL: 300, // 5 минут по умолчанию
 };
 
 /**
@@ -65,6 +66,10 @@ export const getConfig = (): MCPServerOptions => {
     figmaApiKey: getEnvString('FIGMA_API_KEY', defaultConfig.figmaApiKey),
     websocketUrl: getEnvString('WEBSOCKET_URL', defaultConfig.websocketUrl),
     verbose: getEnvBoolean('VERBOSE', defaultConfig.verbose),
+    figmaOAuthClientId: getEnvString('FIGMA_OAUTH_CLIENT_ID'),
+    figmaOAuthClientSecret: getEnvString('FIGMA_OAUTH_CLIENT_SECRET'),
+    figmaOAuthRedirectUri: getEnvString('FIGMA_OAUTH_REDIRECT_URI'),
+    figmaApiCacheTTL: getEnvNumber('FIGMA_API_CACHE_TTL', defaultConfig.figmaApiCacheTTL),
   };
 };
 

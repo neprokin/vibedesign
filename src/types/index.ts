@@ -16,6 +16,14 @@ export interface MCPServerOptions {
   websocketUrl?: string;
   /** Включить детальное логирование */
   verbose?: boolean;
+  /** Клиент ID для OAuth в Figma */
+  figmaOAuthClientId?: string;
+  /** Клиент Secret для OAuth в Figma */
+  figmaOAuthClientSecret?: string;
+  /** URI перенаправления для OAuth в Figma */
+  figmaOAuthRedirectUri?: string;
+  /** Время жизни кэша для Figma API (в секундах) */
+  figmaApiCacheTTL?: number;
 }
 
 /**
@@ -218,4 +226,6 @@ export interface ToolResult<T = any> {
   data?: T;
   /** Сообщение об ошибке */
   error?: string;
+  /** Метаданные операции */
+  meta?: Record<string, any>;
 } 

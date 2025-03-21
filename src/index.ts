@@ -15,6 +15,9 @@ import { getDesignTokensDescription } from './tools/get-design-tokens';
 import { createTokenCollectionDescription } from './tools/create-token-collection';
 import { createDesignTokenDescription } from './tools/create-design-token';
 import { exportDesignTokensDescription } from './tools/export-design-tokens';
+import { getFigmaAuthUrlDescription } from './tools/get-figma-auth-url';
+import { getFigmaTokenDescription } from './tools/get-figma-token';
+import { getCachedFigmaDataDescription } from './tools/get-cached-figma-data';
 
 /**
  * Запуск MCP сервера
@@ -133,6 +136,28 @@ async function startServer(): Promise<void> {
       exportDesignTokensDescription.handler,
       exportDesignTokensDescription.description,
       exportDesignTokensDescription.parameterSchema
+    );
+    
+    // Регистрируем улучшенные инструменты для работы с Figma API
+    server.registerTool(
+      getFigmaAuthUrlDescription.name,
+      getFigmaAuthUrlDescription.handler,
+      getFigmaAuthUrlDescription.description,
+      getFigmaAuthUrlDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      getFigmaTokenDescription.name,
+      getFigmaTokenDescription.handler,
+      getFigmaTokenDescription.description,
+      getFigmaTokenDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      getCachedFigmaDataDescription.name,
+      getCachedFigmaDataDescription.handler,
+      getCachedFigmaDataDescription.description,
+      getCachedFigmaDataDescription.parameterSchema
     );
 
     // Запускаем сервер

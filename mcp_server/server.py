@@ -289,6 +289,85 @@ async def export_design_tokens(
         logger.error(f"Error exporting design tokens: {e}")
         raise
 
+@mcp.tool()
+async def get_figma_auth_url(
+    scopes: list[str],
+    state: str = None
+):
+    """Получение URL для OAuth авторизации в Figma"""
+    try:
+        if not scopes or len(scopes) == 0:
+            raise ValueError("At least one scope is required")
+            
+        params = {
+            "scopes": scopes
+        }
+        if state:
+            params["state"] = state
+            
+        logger.info(f"Getting Figma OAuth URL with scopes: {', '.join(scopes)}")
+        return {"status": "success", "action": "get_figma_auth_url", "params": params}
+    except Exception as e:
+        logger.error(f"Error getting Figma OAuth URL: {e}")
+        raise
+
+@mcp.tool()
+async def get_figma_token(
+    code: str
+):
+    """Получение токена OAuth для Figma"""
+    try:
+        if not code:
+            raise ValueError("Authorization code is required")
+            
+        params = {
+            "code": code
+        }
+            
+        logger.info("Getting Figma OAuth token")
+        return {"status": "success", "action": "get_figma_token", "params": params}
+    except Exception as e:
+        logger.error(f"Error getting Figma token: {e}")
+        raise
+
+@mcp.tool()
+async def get_cached_figma_data(
+    file_key: str,
+    node_id: str = None,
+    node_ids: list[str] = None,
+    cache_ttl: int = None,
+    check_freshness: bool = False,
+    force_refresh: bool = False
+):
+    """Получение данных из Figma с кэшированием"""
+    try:
+        if not file_key:
+            raise ValueError("File key is required")
+            
+        if node_id and node_ids:
+            raise ValueError("Cannot specify both node_id and node_ids")
+            
+        params = {
+            "fileKey": file_key
+        }
+        
+        if node_id:
+            params["nodeId"] = node_id
+        if node_ids:
+            params["nodeIds"] = node_ids
+        if cache_ttl:
+            params["cacheTTL"] = cache_ttl
+        if check_freshness:
+            params["checkFreshness"] = check_freshness
+        if force_refresh:
+            params["forceRefresh"] = force_refresh
+            
+        logger.info(f"Getting cached Figma data for file: {file_key}")
+        return {"status": "success", "action": "get_cached_figma_data", "params": params}
+    except Exception as e:
+        logger.error(f"Error getting cached Figma data: {e}")
+        raise
+
 # Регистрация обработчиков WebSocket
 @ws_server.register_handler("NODE_UPDATED")
 async def handle_node_updated(websocket, payload):
