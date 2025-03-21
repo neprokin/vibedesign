@@ -5,6 +5,7 @@ import { getFigmaDataDescription } from './tools/get-figma-data';
 import { getStylesDescription } from './tools/get-styles';
 import { getComponentsDescription } from './tools/get-components';
 import { getDocumentInfoDescription } from './tools/get-document-info';
+import { getSelectionDescription } from './tools/get-selection';
 
 /**
  * Запуск MCP сервера
@@ -51,6 +52,13 @@ async function startServer(): Promise<void> {
       getDocumentInfoDescription.handler,
       getDocumentInfoDescription.description,
       getDocumentInfoDescription.parameterSchema
+    );
+
+    server.registerTool(
+      getSelectionDescription.name,
+      getSelectionDescription.handler,
+      getSelectionDescription.description,
+      getSelectionDescription.parameterSchema
     );
 
     // Запускаем сервер

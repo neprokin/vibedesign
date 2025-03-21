@@ -109,6 +109,18 @@ export interface GetDocumentInfoParams {
 }
 
 /**
+ * Параметры для get_selection
+ */
+export interface GetSelectionParams {
+  /** Ключ файла */
+  fileKey: string;
+  /** ID выбранных нод */
+  nodeIds: string[];
+  /** Глубина обхода дерева (опционально) */
+  depth?: number;
+}
+
+/**
  * Параметры для create_frame
  */
 export interface CreateFrameParams {
