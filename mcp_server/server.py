@@ -8,6 +8,7 @@ from tools.llm_factory import LLMFactory
 from tools.prompt_manager import PromptManager
 from tools.logger import logger
 from config import load_config
+import datetime
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -912,6 +913,31 @@ async def handle_node_deleted(websocket, payload):
 @ws_server.register_handler("ERROR")
 async def handle_error(websocket, payload):
     logger.error(f"Error from plugin: {payload}")
+
+@ws_server.register_handler("PING")
+async def handle_ping(websocket, payload):
+    logger.info(f"Ping received: {payload}")
+    # Отправляем pong обратно
+    try:
+        await ws_server.send_to_client(websocket, "PONG", {
+            "message": "Server is alive",
+            "received_at": payload.get("time") if payload and "time" in payload else None,
+            "server_time": datetime.datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error sending PONG response: {e}")
+
+@ws_server.register_handler("ECHO")
+async def handle_echo(websocket, payload):
+    logger.info(f"Echo request received: {payload}")
+    # Отправляем эхо обратно
+    try:
+        await ws_server.send_to_client(websocket, "ECHO_RESPONSE", {
+            "original_message": payload,
+            "server_time": datetime.datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error sending ECHO response: {e}")
 
 # Запуск сервера
 if __name__ == "__main__":

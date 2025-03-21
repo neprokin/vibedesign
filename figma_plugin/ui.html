@@ -1,20 +1,456 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Figma Automation</title>
-    <link rel="stylesheet" href="styles/main.css">
+    <!-- CSS файл будет автоматически внедрен через webpack -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 16px;
+            background: #fff;
+            color: #333;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin: 0 0 16px 0;
+        }
+        
+        .container {
+            width: 100%;
+        }
+        
+        button {
+            background: #0D99FF;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background: #0B85E5;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            margin: 16px 0;
+            padding: 12px;
+            background: #F5F5F5;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .connection-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #e53935;
+            margin-left: 8px;
+        }
+        
+        .connection-dot.connected {
+            background-color: #43a047;
+        }
+        
+        #root {
+            width: 100%;
+        }
+        
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .error {
+            color: #e53935;
+        }
+        
+        .success {
+            color: #43a047;
+        }
+        
+        .info {
+            color: #1e88e5;
+        }
+        
+        .tools {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .tools button {
+            text-align: left;
+        }
+        
+        .tools-header {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .log-controls button {
+            padding: 5px 10px;
+            font-size: 12px;
+            flex: 1;
+        }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <div class="container">
-            <h1>Figma Automation</h1>
-            <div id="status">Connecting to server...</div>
-            <div id="content">
-                <!-- Здесь будет контент плагина -->
-            </div>
+    <div class="container">
+        <h1>Figma Automation</h1>
+        <div class="status">
+            <span>Статус: <span id="status">Отключено</span></span>
+            <div id="connection-indicator" class="connection-dot"></div>
+        </div>
+        
+        <button id="connect-btn">Подключиться к серверу</button>
+        
+        <div id="tools-container" class="tools" style="display: none;">
+            <div class="tools-header">Инструменты:</div>
+            <button id="analyze-design-btn">Анализировать дизайн</button>
+            <button id="generate-code-btn">Сгенерировать код</button>
+            <button id="generate-responsive-btn">Адаптивный дизайн</button>
+            <button id="generate-variants-btn">Варианты компонентов</button>
+        </div>
+        
+        <!-- Лог для диагностики -->
+        <div class="log" id="log-container">
+            <div class="info">Инициализация плагина...</div>
+        </div>
+        
+        <!-- Кнопки управления логами -->
+        <div class="log-controls">
+            <button id="export-logs-btn">Экспорт логов</button>
+            <button id="clear-logs-btn">Очистить логи</button>
         </div>
     </div>
-    <script src="dist/plugin.js"></script>
+    
+    <div id="root"></div>
+    
+    <script>
+        // WebSocket клиент
+        let ws = null;
+        let isConnected = false;
+        const serverUrl = 'ws://localhost:8766';
+        const logHistory = [];
+        
+        // Функция для логирования
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            const timestamp = new Date().toLocaleTimeString();
+            const fullMessage = `[${timestamp}] ${message}`;
+            logEntry.textContent = fullMessage;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Сохраняем лог в истории
+            logHistory.push({timestamp: new Date(), type, message});
+            
+            // Отправляем лог в plugin.ts для сохранения на диске
+            parent.postMessage({ 
+                pluginMessage: { 
+                    type: 'LOG_ENTRY', 
+                    payload: { timestamp: new Date().toISOString(), level: type, message }
+                } 
+            }, '*');
+            
+            console.log(`[${type}] ${message}`);
+        }
+        
+        // Обновление UI при изменении статуса соединения
+        function updateConnectionStatus(connected) {
+            isConnected = connected;
+            const statusText = document.getElementById('status');
+            const connectionIndicator = document.getElementById('connection-indicator');
+            const connectButton = document.getElementById('connect-btn');
+            const toolsContainer = document.getElementById('tools-container');
+            
+            if (connected) {
+                statusText.textContent = 'Подключено';
+                connectionIndicator.classList.add('connected');
+                connectButton.textContent = 'Переподключиться';
+                toolsContainer.style.display = 'flex';
+            } else {
+                statusText.textContent = 'Отключено';
+                connectionIndicator.classList.remove('connected');
+                connectButton.textContent = 'Подключиться к серверу';
+                toolsContainer.style.display = 'none';
+            }
+        }
+        
+        // Установка соединения
+        function connectToServer() {
+            log('Подключение к серверу...');
+            
+            try {
+                // Закрыть предыдущее соединение, если есть
+                if (ws) {
+                    ws.close();
+                    ws = null;
+                }
+                
+                // Создать новое соединение
+                ws = new WebSocket(serverUrl);
+                
+                // Логируем состояние readyState
+                log(`WebSocket создан, состояние: ${ws.readyState} (0-CONNECTING)`);
+                
+                ws.onopen = function() {
+                    log(`WebSocket открыт, состояние: ${ws.readyState} (1-OPEN)`, 'success');
+                    log('Соединение установлено успешно!', 'success');
+                    updateConnectionStatus(true);
+                    
+                    // Уведомить plugin.ts о соединении
+                    parent.postMessage({ 
+                        pluginMessage: { 
+                            type: 'CONNECTION_CHANGED', 
+                            payload: { connected: true } 
+                        } 
+                    }, '*');
+                    
+                    // Отправить тестовое сообщение
+                    setTimeout(() => {
+                        try {
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                log('Отправка тестового ping-сообщения...', 'info');
+                                ws.send(JSON.stringify({type: 'PING', payload: {time: new Date().toISOString()}}));
+                            }
+                        } catch(e) {
+                            log(`Ошибка отправки тестового сообщения: ${e.message}`, 'error');
+                        }
+                    }, 1000);
+                };
+                
+                ws.onclose = function(event) {
+                    log(`WebSocket закрыт, код: ${event.code}, причина: ${event.reason || 'Причина не указана'}`, 'info');
+                    log(`Детали закрытия - чистое: ${event.wasClean ? 'да' : 'нет'}`, 'info');
+                    log('Соединение закрыто', 'info');
+                    updateConnectionStatus(false);
+                    
+                    // Уведомить plugin.ts о разрыве соединения
+                    parent.postMessage({ 
+                        pluginMessage: { 
+                            type: 'CONNECTION_CHANGED', 
+                            payload: { connected: false, closeDetails: {
+                                code: event.code,
+                                reason: event.reason,
+                                wasClean: event.wasClean
+                            } } 
+                        } 
+                    }, '*');
+                };
+                
+                ws.onerror = function(error) {
+                    log(`WebSocket ошибка, состояние: ${ws ? ws.readyState : 'unknown'}`, 'error');
+                    log('Ошибка WebSocket: ' + (error.message || 'Подробности недоступны'), 'error');
+                    updateConnectionStatus(false);
+                    
+                    // Уведомить plugin.ts об ошибке
+                    parent.postMessage({ 
+                        pluginMessage: { 
+                            type: 'ERROR', 
+                            payload: { message: 'WebSocket error: ' + (error.message || 'Unknown error') } 
+                        } 
+                    }, '*');
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log('Получено сообщение с сервера: ' + JSON.stringify(data), 'info');
+                        
+                        // Пересылка сообщений из WebSocket в plugin.ts
+                        parent.postMessage({ 
+                            pluginMessage: { 
+                                type: 'SERVER_MESSAGE', 
+                                payload: data
+                            } 
+                        }, '*');
+                    } catch (error) {
+                        log('Ошибка обработки сообщения: ' + error.message, 'error');
+                    }
+                };
+            } catch (error) {
+                log('Ошибка при создании WebSocket: ' + error.message, 'error');
+                updateConnectionStatus(false);
+            }
+        }
+        
+        // Отправка сообщения через WebSocket
+        function sendMessageToServer(type, payload) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Невозможно отправить сообщение: соединение не установлено', 'error');
+                return false;
+            }
+            
+            try {
+                const message = { type, payload };
+                ws.send(JSON.stringify(message));
+                log('Отправлено сообщение на сервер: ' + JSON.stringify(message), 'info');
+                return true;
+            } catch (error) {
+                log('Ошибка отправки сообщения: ' + error.message, 'error');
+                return false;
+            }
+        }
+        
+        // Подключение к WebSocket серверу
+        document.getElementById('connect-btn').addEventListener('click', function() {
+            connectToServer();
+        });
+        
+        // Кнопки инструментов
+        document.getElementById('analyze-design-btn').addEventListener('click', function() {
+            log('Запрос на анализ дизайна...');
+            // Запросить данные из plugin.ts и затем отправить на сервер
+            parent.postMessage({ pluginMessage: { type: 'REQUEST_ANALYZE_DESIGN' } }, '*');
+        });
+        
+        document.getElementById('generate-code-btn').addEventListener('click', function() {
+            log('Запрос на генерацию кода...');
+            parent.postMessage({ pluginMessage: { type: 'REQUEST_GENERATE_CODE' } }, '*');
+        });
+        
+        document.getElementById('generate-responsive-btn').addEventListener('click', function() {
+            log('Запрос на генерацию адаптивного дизайна...');
+            parent.postMessage({ pluginMessage: { type: 'REQUEST_GENERATE_RESPONSIVE' } }, '*');
+        });
+        
+        document.getElementById('generate-variants-btn').addEventListener('click', function() {
+            log('Запрос на генерацию вариантов компонентов...');
+            parent.postMessage({ pluginMessage: { type: 'REQUEST_GENERATE_VARIANTS' } }, '*');
+        });
+        
+        // Функция скачивания файла
+        function downloadFile(content, filename, contentType) {
+            const a = document.createElement('a');
+            const file = new Blob([content], {type: contentType});
+            
+            a.href = URL.createObjectURL(file);
+            a.download = filename;
+            a.click();
+            
+            URL.revokeObjectURL(a.href);
+        }
+        
+        // Кнопки управления логами
+        document.getElementById('export-logs-btn').addEventListener('click', function() {
+            log('Запрос на экспорт логов...');
+            parent.postMessage({ pluginMessage: { type: 'EXPORT_LOGS' } }, '*');
+        });
+        
+        document.getElementById('clear-logs-btn').addEventListener('click', function() {
+            if (confirm('Вы уверены, что хотите очистить все логи?')) {
+                log('Очистка логов...');
+                parent.postMessage({ pluginMessage: { type: 'CLEAR_LOGS' } }, '*');
+                
+                // Также очищаем UI
+                const logContainer = document.getElementById('log-container');
+                logContainer.innerHTML = '';
+                logContainer.appendChild(document.createElement('div')).className = 'info';
+                logContainer.lastChild.textContent = 'Логи очищены';
+            }
+        });
+        
+        // Слушаем сообщения от plugin.ts
+        window.onmessage = (event) => {
+            const message = event.data.pluginMessage;
+            if (!message) return;
+            
+            log('Получено сообщение от plugin.ts: ' + JSON.stringify(message), 'info');
+            
+            // Обработка сообщений от plugin.ts
+            switch (message.type) {
+                case 'SEND_TO_SERVER':
+                    // Отправка сообщения на сервер по запросу от plugin.ts
+                    if (message.payload && message.payload.type) {
+                        sendMessageToServer(message.payload.type, message.payload.data);
+                    }
+                    break;
+                    
+                case 'SELECTION_DATA':
+                    // Получены данные о выделенных элементах
+                    if (message.payload && message.payload.tool) {
+                        const tool = message.payload.tool;
+                        const data = message.payload.data;
+                        
+                        // Отправляем данные на сервер в зависимости от инструмента
+                        switch (tool) {
+                            case 'analyze':
+                                sendMessageToServer('ANALYZE_DESIGN', data);
+                                break;
+                            case 'code':
+                                sendMessageToServer('GENERATE_CODE', data);
+                                break;
+                            case 'responsive':
+                                sendMessageToServer('GENERATE_RESPONSIVE', data);
+                                break;
+                            case 'variants':
+                                sendMessageToServer('GENERATE_VARIANTS', data);
+                                break;
+                        }
+                    }
+                    break;
+                    
+                case 'ERROR':
+                    // Отображение ошибок от plugin.ts
+                    log('Ошибка: ' + message.payload.message, 'error');
+                    break;
+                    
+                case 'LOGS_EXPORT_DATA':
+                    // Получили данные логов для экспорта
+                    if (message.payload && message.payload.logsText) {
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const filename = `figma-automation-logs-${timestamp}.txt`;
+                        downloadFile(message.payload.logsText, filename, 'text/plain');
+                        log('Логи экспортированы в файл: ' + filename, 'success');
+                    }
+                    break;
+                    
+                case 'LOGS_CLEARED':
+                    log('Логи успешно очищены', 'success');
+                    break;
+                    
+                case 'SAVED_LOGS':
+                    // Восстановленные логи из хранилища
+                    if (message.payload && message.payload.logs && message.payload.logs.length > 0) {
+                        log(`Загружено ${message.payload.logs.length} сохраненных логов`, 'info');
+                    }
+                    break;
+            }
+        };
+        
+        // Информируем plugin.ts, что UI загружен
+        log('Плагин инициализирован и готов к работе');
+        parent.postMessage({ pluginMessage: { type: 'UI_LOADED' } }, '*');
+    </script>
 </body>
 </html> 

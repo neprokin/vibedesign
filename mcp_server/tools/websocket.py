@@ -65,13 +65,12 @@ class WebSocketServer:
             except:
                 pass
 
-    async def handler(self, websocket: websockets.WebSocketServerProtocol, path: str):
+    async def handler(self, websocket: websockets.WebSocketServerProtocol):
         """
         Обработчик WebSocket соединения
         
         Args:
             websocket: WebSocket соединение
-            path: Путь соединения
         """
         client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
         logger.info(f"Client connected: {client_info}")
