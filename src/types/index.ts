@@ -81,6 +81,16 @@ export interface GetFigmaDataParams {
 }
 
 /**
+ * Параметры для get_styles
+ */
+export interface GetStylesParams {
+  /** Ключ файла */
+  fileKey: string;
+  /** Тип стилей (опционально) */
+  styleType?: 'FILL' | 'TEXT' | 'EFFECT' | 'GRID';
+}
+
+/**
  * Параметры для create_frame
  */
 export interface CreateFrameParams {
