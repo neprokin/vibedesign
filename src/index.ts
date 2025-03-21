@@ -11,6 +11,10 @@ import { createRectangleDescription } from './tools/create-rectangle';
 import { createTextDescription } from './tools/create-text';
 import { updateNodeDescription } from './tools/update-node';
 import { deleteNodeDescription } from './tools/delete-node';
+import { getDesignTokensDescription } from './tools/get-design-tokens';
+import { createTokenCollectionDescription } from './tools/create-token-collection';
+import { createDesignTokenDescription } from './tools/create-design-token';
+import { exportDesignTokensDescription } from './tools/export-design-tokens';
 
 /**
  * Запуск MCP сервера
@@ -100,6 +104,35 @@ async function startServer(): Promise<void> {
       deleteNodeDescription.handler,
       deleteNodeDescription.description,
       deleteNodeDescription.parameterSchema
+    );
+    
+    // Регистрируем инструменты для работы с дизайн-токенами
+    server.registerTool(
+      getDesignTokensDescription.name,
+      getDesignTokensDescription.handler,
+      getDesignTokensDescription.description,
+      getDesignTokensDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      createTokenCollectionDescription.name,
+      createTokenCollectionDescription.handler,
+      createTokenCollectionDescription.description,
+      createTokenCollectionDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      createDesignTokenDescription.name,
+      createDesignTokenDescription.handler,
+      createDesignTokenDescription.description,
+      createDesignTokenDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      exportDesignTokensDescription.name,
+      exportDesignTokensDescription.handler,
+      exportDesignTokensDescription.description,
+      exportDesignTokensDescription.parameterSchema
     );
 
     // Запускаем сервер

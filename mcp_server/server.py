@@ -194,6 +194,101 @@ async def create_text(
         logger.error(f"Error creating Figma text: {e}")
         raise
 
+@mcp.tool()
+async def get_design_tokens(
+    collection_id: str = None,
+    token_type: str = None,
+    token_name: str = None
+):
+    """Получение дизайн-токенов"""
+    try:
+        params = {}
+        if collection_id:
+            params["collectionId"] = collection_id
+        if token_type:
+            params["tokenType"] = token_type
+        if token_name:
+            params["tokenName"] = token_name
+            
+        logger.info("Getting design tokens", params)
+        return {"status": "success", "action": "get_design_tokens", "params": params}
+    except Exception as e:
+        logger.error(f"Error getting design tokens: {e}")
+        raise
+
+@mcp.tool()
+async def create_token_collection(
+    name: str,
+    description: str = None,
+    version: str = None,
+    import_data: str = None
+):
+    """Создание коллекции дизайн-токенов"""
+    try:
+        params = {
+            "name": name
+        }
+        if description:
+            params["description"] = description
+        if version:
+            params["version"] = version
+        if import_data:
+            params["importData"] = import_data
+            
+        logger.info(f"Creating token collection: {name}")
+        return {"status": "success", "action": "create_token_collection", "params": params}
+    except Exception as e:
+        logger.error(f"Error creating token collection: {e}")
+        raise
+
+@mcp.tool()
+async def create_design_token(
+    collection_id: str,
+    group_name: str,
+    name: str,
+    type: str,
+    value: any,
+    description: str = None,
+    meta: dict = None
+):
+    """Создание дизайн-токена"""
+    try:
+        params = {
+            "collectionId": collection_id,
+            "groupName": group_name,
+            "name": name,
+            "type": type,
+            "value": value
+        }
+        if description:
+            params["description"] = description
+        if meta:
+            params["meta"] = meta
+            
+        logger.info(f"Creating design token: {name} ({type})")
+        return {"status": "success", "action": "create_design_token", "params": params}
+    except Exception as e:
+        logger.error(f"Error creating design token: {e}")
+        raise
+
+@mcp.tool()
+async def export_design_tokens(
+    collection_id: str,
+    format: str
+):
+    """Экспорт дизайн-токенов в указанном формате"""
+    try:
+        params = {
+            "collectionId": collection_id,
+            "format": format
+        }
+            
+        logger.info(f"Exporting design tokens in format: {format}")
+        return {"status": "success", "action": "export_design_tokens", "params": params}
+    except Exception as e:
+        logger.error(f"Error exporting design tokens: {e}")
+        raise
+
 # Регистрация обработчиков WebSocket
 @ws_server.register_handler("NODE_UPDATED")
 async def handle_node_updated(websocket, payload):
