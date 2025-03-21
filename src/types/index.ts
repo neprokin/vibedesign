@@ -101,6 +101,14 @@ export interface GetComponentsParams {
 }
 
 /**
+ * Параметры для get_document_info
+ */
+export interface GetDocumentInfoParams {
+  /** Ключ файла */
+  fileKey: string;
+}
+
+/**
  * Параметры для create_frame
  */
 export interface CreateFrameParams {

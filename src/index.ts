@@ -4,6 +4,7 @@ import { MCPServer } from './core/mcp-server';
 import { getFigmaDataDescription } from './tools/get-figma-data';
 import { getStylesDescription } from './tools/get-styles';
 import { getComponentsDescription } from './tools/get-components';
+import { getDocumentInfoDescription } from './tools/get-document-info';
 
 /**
  * Запуск MCP сервера
@@ -43,6 +44,13 @@ async function startServer(): Promise<void> {
       getComponentsDescription.handler,
       getComponentsDescription.description,
       getComponentsDescription.parameterSchema
+    );
+
+    server.registerTool(
+      getDocumentInfoDescription.name,
+      getDocumentInfoDescription.handler,
+      getDocumentInfoDescription.description,
+      getDocumentInfoDescription.parameterSchema
     );
 
     // Запускаем сервер
