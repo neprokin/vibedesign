@@ -30,13 +30,23 @@ async def get_figma_data(file_key: str):
         raise
 
 @mcp.tool()
-async def update_figma_node(node_id: str, updates: dict):
+async def update_figma_node(
+    file_key: str,
+    node_id: str,
+    properties: dict
+):
     """Обновление узла в Figma через плагин"""
     try:
-        await ws_server.broadcast("UPDATE_NODE", {
+        if not properties or len(properties) == 0:
+            raise ValueError("At least one property must be specified for update")
+            
+        payload = {
+            "fileKey": file_key,
             "nodeId": node_id,
-            "updates": updates
-        })
+            "properties": properties
+        }
+        
+        await ws_server.broadcast("UPDATE_NODE", payload)
         logger.info(f"Successfully sent update for node: {node_id}")
         return {"status": "success"}
     except Exception as e:
@@ -58,12 +68,18 @@ async def create_figma_node(type: str, properties: dict):
         raise
 
 @mcp.tool()
-async def delete_figma_node(node_id: str):
+async def delete_figma_node(
+    file_key: str,
+    node_id: str
+):
     """Удаление узла в Figma"""
     try:
-        await ws_server.broadcast("DELETE_NODE", {
+        payload = {
+            "fileKey": file_key,
             "nodeId": node_id
-        })
+        }
+        
+        await ws_server.broadcast("DELETE_NODE", payload)
         logger.info(f"Successfully sent delete command for node: {node_id}")
         return {"status": "success"}
     except Exception as e:

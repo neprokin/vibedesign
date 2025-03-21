@@ -9,6 +9,8 @@ import { getSelectionDescription } from './tools/get-selection';
 import { createFrameDescription } from './tools/create-frame';
 import { createRectangleDescription } from './tools/create-rectangle';
 import { createTextDescription } from './tools/create-text';
+import { updateNodeDescription } from './tools/update-node';
+import { deleteNodeDescription } from './tools/delete-node';
 
 /**
  * Запуск MCP сервера
@@ -84,6 +86,20 @@ async function startServer(): Promise<void> {
       createTextDescription.handler,
       createTextDescription.description,
       createTextDescription.parameterSchema
+    );
+    
+    server.registerTool(
+      updateNodeDescription.name,
+      updateNodeDescription.handler,
+      updateNodeDescription.description,
+      updateNodeDescription.parameterSchema
+    );
+
+    server.registerTool(
+      deleteNodeDescription.name,
+      deleteNodeDescription.handler,
+      deleteNodeDescription.description,
+      deleteNodeDescription.parameterSchema
     );
 
     // Запускаем сервер
