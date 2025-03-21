@@ -683,6 +683,220 @@ async def analyze_accessibility(design_data: dict, wcag_level: str = "AA", crite
         logger.error(f"Error analyzing accessibility: {e}")
         raise
 
+@mcp.tool()
+async def generate_responsive_layout(
+    original_design: dict,
+    target_device: str = "mobile",
+    breakpoints: dict = None,
+    design_tokens: dict = None
+):
+    """
+    Генерация адаптивного макета на основе существующего дизайна
+    
+    Args:
+        original_design: Данные оригинального дизайна из Figma API
+        target_device: Целевое устройство для адаптации (mobile, tablet, desktop)
+        breakpoints: Контрольные точки для адаптивного дизайна в пикселях
+        design_tokens: Дизайн-токены проекта
+        
+    Returns:
+        Структура адаптивного макета с компонентами и стилями
+    """
+    try:
+        # Валидируем target_device
+        valid_devices = ["mobile", "tablet", "desktop"]
+        if target_device not in valid_devices:
+            target_device = "mobile"  # Значение по умолчанию
+        
+        # Устанавливаем breakpoints по умолчанию, если не переданы
+        if not breakpoints:
+            breakpoints = {
+                "mobile": 375,
+                "tablet": 768,
+                "desktop": 1440
+            }
+        
+        # Рендерим шаблон промпта с переданными параметрами
+        prompt_context = {
+            "original_design": original_design,
+            "target_device": target_device,
+            "breakpoints": breakpoints,
+            "design_tokens": design_tokens or {}
+        }
+        
+        # Формируем JSON-схему для валидации ответа
+        json_schema = {
+            "type": "object",
+            "required": ["layout_structure", "components", "responsive_rules", "navigation", "images", "implementation_notes"],
+            "properties": {
+                "layout_structure": {
+                    "type": "object",
+                    "description": "Детальное описание структуры адаптивного макета"
+                },
+                "components": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["id", "type", "properties", "styles"],
+                        "properties": {
+                            "id": {"type": "string"},
+                            "type": {"type": "string"},
+                            "properties": {"type": "object"},
+                            "styles": {"type": "object"},
+                            "children": {"type": "array"}
+                        }
+                    }
+                },
+                "responsive_rules": {
+                    "type": "object",
+                    "description": "Правила адаптации для разных размеров экрана"
+                },
+                "navigation": {
+                    "type": "object",
+                    "description": "Описание навигационной системы"
+                },
+                "images": {
+                    "type": "object",
+                    "description": "Рекомендации по работе с изображениями"
+                },
+                "implementation_notes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Замечания и рекомендации по реализации"
+                }
+            }
+        }
+        
+        # Генерируем промпт через менеджер шаблонов
+        prompt = prompt_manager.render_template("generate_responsive_layout.j2", prompt_context)
+        
+        # Отправляем промпт в LLM и получаем структурированный ответ
+        system_message = f"Ты - эксперт по UI/UX дизайну и адаптивной верстке с глубоким пониманием принципов дизайна для различных устройств, особенно для {target_device}."
+        result = await llm_adapter.generate_json(
+            prompt=prompt,
+            json_schema=json_schema,
+            system_message=system_message,
+            temperature=0.5
+        )
+        
+        logger.info(f"Successfully generated responsive layout for {target_device}")
+        return result
+    except Exception as e:
+        logger.error(f"Error generating responsive layout: {e}")
+        raise
+
+@mcp.tool()
+async def generate_code(
+    design_data: dict,
+    framework: str = "react",
+    css_framework: str = "tailwind",
+    responsive: bool = True,
+    design_tokens: dict = None,
+    component_name: str = None
+):
+    """
+    Генерация кода на основе дизайна из Figma
+    
+    Args:
+        design_data: Данные компонента/дизайна из Figma API
+        framework: Фреймворк для генерации кода (react, vue, html)
+        css_framework: CSS фреймворк или методология (tailwind, styled-components, css-modules, scss)
+        responsive: Нужно ли добавлять адаптивные стили
+        design_tokens: Дизайн-токены проекта
+        component_name: Имя создаваемого компонента
+        
+    Returns:
+        Сгенерированный код компонента и необходимые зависимости
+    """
+    try:
+        # Валидируем framework
+        valid_frameworks = ["react", "vue", "html"]
+        if framework not in valid_frameworks:
+            framework = "react"  # Значение по умолчанию
+        
+        # Валидируем css_framework
+        valid_css_frameworks = ["tailwind", "styled-components", "css-modules", "scss"]
+        if css_framework not in valid_css_frameworks:
+            css_framework = "tailwind"  # Значение по умолчанию
+        
+        # Генерируем имя компонента, если не указано
+        if not component_name:
+            # Пытаемся получить имя из design_data или используем дефолтное
+            component_name = design_data.get("name", "FigmaComponent")
+            
+            # Преобразуем имя к PascalCase для соответствия соглашениям именования компонентов
+            component_name = ''.join(word.capitalize() for word in component_name.replace('-', ' ').replace('_', ' ').split())
+            
+            # Если имя начинается с цифры, добавляем префикс
+            if component_name and component_name[0].isdigit():
+                component_name = "Component" + component_name
+        
+        # Рендерим шаблон промпта с переданными параметрами
+        prompt_context = {
+            "design_data": design_data,
+            "framework": framework,
+            "css_framework": css_framework,
+            "responsive": responsive,
+            "design_tokens": design_tokens or {},
+            "component_name": component_name
+        }
+        
+        # Формируем JSON-схему для валидации ответа
+        json_schema = {
+            "type": "object",
+            "required": ["files", "dependencies", "implementation_notes"],
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["filename", "content", "description"],
+                        "properties": {
+                            "filename": {"type": "string"},
+                            "content": {"type": "string"},
+                            "description": {"type": "string"}
+                        }
+                    }
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["name", "version", "type"],
+                        "properties": {
+                            "name": {"type": "string"},
+                            "version": {"type": "string"},
+                            "type": {"type": "string", "enum": ["dev", "prod"]}
+                        }
+                    }
+                },
+                "implementation_notes": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        }
+        
+        # Генерируем промпт через менеджер шаблонов
+        prompt = prompt_manager.render_template("generate_code.j2", prompt_context)
+        
+        # Отправляем промпт в LLM и получаем структурированный ответ
+        system_message = f"Ты - опытный фронтенд-разработчик, эксперт по {framework} и {css_framework}. Ты создаешь чистый, легко поддерживаемый и высококачественный код на основе дизайнов из Figma."
+        
+        # Используем низкую температуру для генерации кода, чтобы получить более предсказуемый и корректный результат
+        result = await llm_adapter.generate_json(
+            prompt=prompt,
+            json_schema=json_schema,
+            system_message=system_message,
+            temperature=0.2
+        )
+        
+        logger.info(f"Successfully generated {framework} code with {css_framework} for {component_name}")
+        return result
+    except Exception as e:
+        logger.error(f"Error generating code: {e}")
+        raise
+
 @ws_server.register_handler("NODE_UPDATED")
 async def handle_node_updated(websocket, payload):
     logger.info(f"Node updated: {payload}")
