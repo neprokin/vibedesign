@@ -1,0 +1,79 @@
+{# 
+{
+  "description": "Шаблон для генерации вариантов дизайна UI-компонента",
+  "parameters": {
+    "description": {
+      "description": "Описание компонента для генерации"
+    },
+    "context": {
+      "description": "Контекст дизайн-системы",
+      "default": {}
+    },
+    "num_variants": {
+      "description": "Количество вариантов для генерации",
+      "default": 3
+    }
+  },
+  "category": "design"
+}
+#}
+
+Создай {{ num_variants }} варианта UI-компонента на основе следующего описания:
+
+{{ description }}
+
+{% if context %}
+Контекст дизайн-системы:
+```json
+{{ context | tojson }}
+```
+
+Используй только токены из контекста дизайн-системы.
+{% endif %}
+
+Для каждого варианта опиши:
+1. Структуру (типы узлов, вложенность)
+2. Визуальные стили (цвета, шрифты, размеры)
+3. Интерактивные состояния (если применимо)
+
+Верни JSON-массив вариантов в следующем формате:
+```json
+[
+  {
+    "name": "Вариант 1",
+    "structure": {
+      "type": "FRAME",
+      "children": [
+        {
+          "type": "RECTANGLE",
+          "name": "Button Background"
+        },
+        {
+          "type": "TEXT",
+          "name": "Button Label"
+        }
+      ]
+    },
+    "styles": {
+      "fill": "#4C8BF5",
+      "borderRadius": 4,
+      "padding": "8px 16px",
+      "typography": {
+        "fontFamily": "Inter",
+        "fontSize": 14,
+        "fontWeight": 500
+      }
+    },
+    "states": [
+      {
+        "name": "hover",
+        "changes": {
+          "fill": "#3A7CE0"
+        }
+      }
+    ]
+  }
+]
+```
+
+Верни только JSON-массив, без дополнительного текста или пояснений. 

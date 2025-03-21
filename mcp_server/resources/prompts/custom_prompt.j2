@@ -1,0 +1,23 @@
+{# 
+{
+  "description": "Базовый шаблон для кастомных запросов к LLM",
+  "parameters": {
+    "prompt": {
+      "description": "Основной текст промпта"
+    },
+    "system_message": {
+      "description": "Системное сообщение для установки контекста",
+      "default": "Ты - помощник, который специализируется на дизайне и Figma."
+    },
+    "temperature": {
+      "description": "Параметр температуры для генерации",
+      "default": 0.7
+    }
+  },
+  "category": "general"
+}
+#}
+
+{{ system_message }}
+
+{{ prompt }} 
