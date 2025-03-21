@@ -460,6 +460,229 @@ async def get_llm_adapters():
         logger.error(f"Error getting LLM adapters: {e}")
         raise
 
+@mcp.tool()
+async def analyze_layout(layout_data: dict, criteria: list = None):
+    """
+    Анализ компоновки элементов интерфейса
+    
+    Args:
+        layout_data: Данные компоновки из Figma API
+        criteria: Критерии для оценки компоновки (опционально)
+        
+    Returns:
+        Анализ компоновки с оценками и рекомендациями
+    """
+    try:
+        # Рендерим шаблон промпта с переданными параметрами
+        prompt_context = {
+            "layout_data": layout_data,
+            "criteria": criteria
+        }
+        
+        # Формируем JSON-схему для валидации ответа
+        json_schema = {
+            "type": "object",
+            "required": ["analysis", "scores", "strengths", "weaknesses", "recommendations"],
+            "properties": {
+                "analysis": {"type": "string"},
+                "scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 10
+                    }
+                },
+                "strengths": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "weaknesses": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        }
+        
+        # Генерируем промпт через менеджер шаблонов
+        prompt = prompt_manager.render_template("analyze_layout.j2", prompt_context)
+        
+        # Отправляем промпт в LLM и получаем структурированный ответ
+        system_message = "Ты - эксперт по UI/UX дизайну с глубоким пониманием принципов компоновки интерфейсов."
+        result = await llm_adapter.generate_json(
+            prompt=prompt,
+            json_schema=json_schema,
+            system_message=system_message,
+            temperature=0.4  # Используем низкую температуру для более точного анализа
+        )
+        
+        logger.info(f"Successfully analyzed layout with {len(result.get('recommendations', []))} recommendations")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing layout: {e}")
+        raise
+
+@mcp.tool()
+async def analyze_styles(design_data: dict, design_tokens: dict = None, criteria: list = None):
+    """
+    Анализ стилей и визуального оформления интерфейса
+    
+    Args:
+        design_data: Данные дизайна из Figma API
+        design_tokens: Информация о дизайн-токенах проекта (опционально)
+        criteria: Критерии для оценки стилей (опционально)
+        
+    Returns:
+        Анализ стилей с оценками и рекомендациями
+    """
+    try:
+        # Рендерим шаблон промпта с переданными параметрами
+        prompt_context = {
+            "design_data": design_data,
+            "design_tokens": design_tokens or {},
+            "criteria": criteria
+        }
+        
+        # Формируем JSON-схему для валидации ответа
+        json_schema = {
+            "type": "object",
+            "required": ["analysis", "scores", "inconsistencies", "strengths", "recommendations"],
+            "properties": {
+                "analysis": {"type": "string"},
+                "scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 10
+                    }
+                },
+                "inconsistencies": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "strengths": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        }
+        
+        # Генерируем промпт через менеджер шаблонов
+        prompt = prompt_manager.render_template("analyze_styles.j2", prompt_context)
+        
+        # Отправляем промпт в LLM и получаем структурированный ответ
+        system_message = "Ты - эксперт по UI/UX дизайну с глубоким пониманием принципов визуального дизайна и стилей."
+        result = await llm_adapter.generate_json(
+            prompt=prompt,
+            json_schema=json_schema,
+            system_message=system_message,
+            temperature=0.3  # Используем низкую температуру для более точного анализа
+        )
+        
+        logger.info(f"Successfully analyzed styles with {len(result.get('recommendations', []))} recommendations")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing styles: {e}")
+        raise
+
+@mcp.tool()
+async def analyze_accessibility(design_data: dict, wcag_level: str = "AA", criteria: list = None):
+    """
+    Анализ доступности (accessibility) интерфейса
+    
+    Args:
+        design_data: Данные дизайна из Figma API
+        wcag_level: Уровень соответствия WCAG (A, AA, AAA)
+        criteria: Критерии для оценки доступности (опционально)
+        
+    Returns:
+        Анализ доступности с оценками и рекомендациями
+    """
+    try:
+        # Проверяем валидность wcag_level
+        wcag_level = wcag_level.upper()
+        if wcag_level not in ["A", "AA", "AAA"]:
+            wcag_level = "AA"  # Значение по умолчанию
+        
+        # Рендерим шаблон промпта с переданными параметрами
+        prompt_context = {
+            "design_data": design_data,
+            "wcag_level": wcag_level,
+            "criteria": criteria
+        }
+        
+        # Формируем JSON-схему для валидации ответа
+        json_schema = {
+            "type": "object",
+            "required": ["analysis", "wcag_compliance", "scores", "violations", "recommendations", "strengths"],
+            "properties": {
+                "analysis": {"type": "string"},
+                "wcag_compliance": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "scores": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 10
+                    }
+                },
+                "violations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["description", "severity"],
+                        "properties": {
+                            "description": {"type": "string"},
+                            "severity": {
+                                "type": "string",
+                                "enum": ["критический", "серьезный", "средний", "незначительный"]
+                            },
+                            "wcag_criterion": {"type": "string"}
+                        }
+                    }
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "strengths": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        }
+        
+        # Генерируем промпт через менеджер шаблонов
+        prompt = prompt_manager.render_template("analyze_accessibility.j2", prompt_context)
+        
+        # Отправляем промпт в LLM и получаем структурированный ответ
+        system_message = "Ты - эксперт по доступности (accessibility) веб-интерфейсов с глубоким знанием стандартов WCAG."
+        result = await llm_adapter.generate_json(
+            prompt=prompt,
+            json_schema=json_schema,
+            system_message=system_message,
+            temperature=0.2  # Используем очень низкую температуру для точного технического анализа
+        )
+        
+        logger.info(f"Successfully analyzed accessibility with WCAG {wcag_level} compliance: {result.get('wcag_compliance')}%")
+        return result
+    except Exception as e:
+        logger.error(f"Error analyzing accessibility: {e}")
+        raise
+
 @ws_server.register_handler("NODE_UPDATED")
 async def handle_node_updated(websocket, payload):
     logger.info(f"Node updated: {payload}")
