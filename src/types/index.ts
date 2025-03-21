@@ -12,6 +12,8 @@ export interface MCPServerOptions {
   mode?: 'http' | 'stdio';
   /** Токен доступа к Figma API */
   figmaApiKey?: string;
+  /** URL для WebSocket соединения с плагином Figma */
+  websocketUrl?: string;
   /** Включить детальное логирование */
   verbose?: boolean;
 }

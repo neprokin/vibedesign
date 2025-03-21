@@ -48,18 +48,15 @@
    - [x] get_components (информация о компонентах)
 
 2. **Инструменты создания/редактирования**
-   - [ ] create_frame (создание фреймов)
+   - [x] create_frame (создание фреймов)
    - [ ] create_rectangle (создание базовых форм)
    - [ ] create_text (работа с текстом)
    - [ ] update_node (обновление свойств узла)
    - [ ] delete_node (удаление узлов)
 
-3. **Работа с дизайн-токенами**
-   - [ ] get_design_tokens (получение токенов)
-   - [ ] create_design_token (создание токенов)
-   - [ ] update_design_token (обновление токенов)
-   - [ ] apply_design_token (применение токенов)
-   - [ ] export_design_tokens (экспорт токенов)
+3. **Сервисы для связи**
+   - [x] WebSocketClient (связь через WebSocket)
+   - [x] FigmaPlugin (взаимодействие с плагином)
 
 ## Этап 3: AI интеграция
 1. **Анализ дизайна**

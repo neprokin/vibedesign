@@ -6,6 +6,7 @@ import { getStylesDescription } from './tools/get-styles';
 import { getComponentsDescription } from './tools/get-components';
 import { getDocumentInfoDescription } from './tools/get-document-info';
 import { getSelectionDescription } from './tools/get-selection';
+import { createFrameDescription } from './tools/create-frame';
 
 /**
  * Запуск MCP сервера
@@ -25,7 +26,7 @@ async function startServer(): Promise<void> {
     // Создаем экземпляр MCP сервера
     const server = new MCPServer(config);
 
-    // Регистрируем инструменты
+    // Регистрируем инструменты чтения
     server.registerTool(
       getFigmaDataDescription.name,
       getFigmaDataDescription.handler,
@@ -59,6 +60,14 @@ async function startServer(): Promise<void> {
       getSelectionDescription.handler,
       getSelectionDescription.description,
       getSelectionDescription.parameterSchema
+    );
+
+    // Регистрируем инструменты создания/редактирования
+    server.registerTool(
+      createFrameDescription.name,
+      createFrameDescription.handler,
+      createFrameDescription.description,
+      createFrameDescription.parameterSchema
     );
 
     // Запускаем сервер

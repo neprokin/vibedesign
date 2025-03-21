@@ -50,6 +50,7 @@ export const defaultConfig: MCPServerOptions = {
   port: 3333,
   mode: 'http',
   figmaApiKey: '',
+  websocketUrl: 'ws://localhost:8765',
   verbose: false,
 };
 
@@ -62,6 +63,7 @@ export const getConfig = (): MCPServerOptions => {
     port: getEnvNumber('PORT', defaultConfig.port),
     mode: (getEnvString('MODE', 'http') === 'stdio' ? 'stdio' : 'http') as 'http' | 'stdio',
     figmaApiKey: getEnvString('FIGMA_API_KEY', defaultConfig.figmaApiKey),
+    websocketUrl: getEnvString('WEBSOCKET_URL', defaultConfig.websocketUrl),
     verbose: getEnvBoolean('VERBOSE', defaultConfig.verbose),
   };
 };
