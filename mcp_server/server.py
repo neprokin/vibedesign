@@ -9,6 +9,7 @@ from tools.prompt_manager import PromptManager
 from tools.logger import logger
 from config import load_config
 import datetime
+import random
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -938,6 +939,160 @@ async def handle_echo(websocket, payload):
         })
     except Exception as e:
         logger.error(f"Error sending ECHO response: {e}")
+
+@ws_server.register_handler("ANALYZE_DESIGN")
+async def handle_analyze_design(websocket, payload):
+    logger.info(f"Analyze design request received, payload: {payload}")
+    try:
+        # Проверка наличия данных
+        if not payload or not payload.get("data"):
+            await ws_server.send_to_client(websocket, "ERROR", {
+                "message": "Missing design data in the payload"
+            })
+            return
+
+        # Извлекаем данные о дизайне
+        figma_data = payload.get("data")
+        criteria = payload.get("criteria", None)
+        
+        # Выполняем анализ дизайна
+        analysis_result = await analyze_design(figma_data, criteria)
+        
+        # Отправляем результат анализа
+        await ws_server.send_to_client(websocket, "ANALYSIS_RESULT", {
+            "result": analysis_result,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+        
+        logger.info(f"Design analysis completed and sent to client")
+    except Exception as e:
+        error_message = f"Error analyzing design: {str(e)}"
+        logger.error(error_message, exc_info=True)
+        await ws_server.send_to_client(websocket, "ERROR", {
+            "message": error_message
+        })
+
+@ws_server.register_handler("GENERATE_CODE")
+async def handle_generate_code(websocket, payload):
+    logger.info(f"Generate code request received, payload: {payload}")
+    try:
+        # Проверка наличия данных
+        if not payload or not payload.get("data"):
+            await ws_server.send_to_client(websocket, "ERROR", {
+                "message": "Missing design data in the payload"
+            })
+            return
+
+        # Извлекаем данные о дизайне
+        figma_data = payload.get("data")
+        component_name = payload.get("component_name", "Component")
+        framework = payload.get("framework", "react")
+        css_framework = payload.get("css_framework", "tailwind")
+        
+        # Генерируем код
+        code_result = await generate_code(
+            figma_data, 
+            component_name=component_name,
+            framework=framework,
+            css_framework=css_framework
+        )
+        
+        # Отправляем результат генерации кода
+        await ws_server.send_to_client(websocket, "CODE_GENERATED", {
+            "code": code_result,
+            "component_name": component_name,
+            "framework": framework,
+            "css_framework": css_framework,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+        
+        logger.info(f"Code generation completed and sent to client")
+    except Exception as e:
+        error_message = f"Error generating code: {str(e)}"
+        logger.error(error_message, exc_info=True)
+        await ws_server.send_to_client(websocket, "ERROR", {
+            "message": error_message
+        })
+
+@ws_server.register_handler("GENERATE_RESPONSIVE")
+async def handle_generate_responsive(websocket, payload):
+    logger.info(f"Generate responsive layout request received, payload: {payload}")
+    try:
+        # Проверка наличия данных
+        if not payload or not payload.get("data"):
+            await ws_server.send_to_client(websocket, "ERROR", {
+                "message": "Missing design data in the payload"
+            })
+            return
+
+        # Извлекаем данные о дизайне
+        figma_data = payload.get("data")
+        breakpoints = payload.get("breakpoints", ["mobile", "tablet", "desktop"])
+        
+        # Генерируем адаптивный макет
+        responsive_result = await generate_responsive_layout(figma_data, breakpoints)
+        
+        # Отправляем результат генерации адаптивного макета
+        await ws_server.send_to_client(websocket, "RESPONSIVE_GENERATED", {
+            "layout": responsive_result,
+            "breakpoints": breakpoints,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+        
+        logger.info(f"Responsive layout generation completed and sent to client")
+    except Exception as e:
+        error_message = f"Error generating responsive layout: {str(e)}"
+        logger.error(error_message, exc_info=True)
+        await ws_server.send_to_client(websocket, "ERROR", {
+            "message": error_message
+        })
+
+@ws_server.register_handler("GENERATE_VARIANTS")
+async def handle_generate_variants(websocket, payload):
+    logger.info(f"Generate variants request received, payload: {payload}")
+    try:
+        # Проверка наличия данных
+        if not payload or not payload.get("data"):
+            await ws_server.send_to_client(websocket, "ERROR", {
+                "message": "Missing design data in the payload"
+            })
+            return
+
+        # Извлекаем данные о дизайне
+        figma_data = payload.get("data")
+        variant_types = payload.get("variant_types", ["colors", "sizes", "states"])
+        count = payload.get("count", 3)
+        
+        # Подготовка параметров для генерации вариантов
+        # В реальном приложении здесь нужно было бы создать функцию generate_variants
+        # Для примера используем аналогичный подход как в других методах
+        variants_result = {
+            "variants": [
+                {
+                    "name": f"Variant {i}",
+                    "description": f"Автоматически сгенерированный вариант {i}",
+                    "properties": {
+                        "color": "#" + "".join([f"{random.randint(0, 255):02x}" for _ in range(3)]) if "colors" in variant_types else None,
+                        "size": f"{random.choice(['S', 'M', 'L', 'XL'])}" if "sizes" in variant_types else None,
+                        "state": random.choice(["default", "hover", "active", "disabled"]) if "states" in variant_types else None
+                    }
+                } for i in range(1, count + 1)
+            ]
+        }
+        
+        # Отправляем результат генерации вариантов
+        await ws_server.send_to_client(websocket, "VARIANTS_GENERATED", {
+            "variants": variants_result,
+            "timestamp": datetime.datetime.now().isoformat()
+        })
+        
+        logger.info(f"Variants generation completed and sent to client")
+    except Exception as e:
+        error_message = f"Error generating variants: {str(e)}"
+        logger.error(error_message, exc_info=True)
+        await ws_server.send_to_client(websocket, "ERROR", {
+            "message": error_message
+        })
 
 # Запуск сервера
 if __name__ == "__main__":

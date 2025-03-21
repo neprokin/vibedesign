@@ -166,10 +166,65 @@ async def handler(self, websocket: websockets.WebSocketServerProtocol):
 Сервер обрабатывает следующие типы сообщений:
 - `PING` - тестовый пинг для проверки соединения
 - `ECHO` - эхо-запрос для тестирования двустороннего обмена данными
+- `ANALYZE_DESIGN` - анализ выбранных элементов дизайна
+- `GENERATE_CODE` - генерация кода для выбранных элементов
+- `GENERATE_RESPONSIVE` - создание адаптивных вариантов макета
+- `GENERATE_VARIANTS` - генерация вариантов компонентов
 - `NODE_UPDATED` - сообщение об обновлении узла в Figma
 - `NODE_CREATED` - сообщение о создании нового узла
 - `NODE_DELETED` - сообщение об удалении узла
 - `ERROR` - сообщение об ошибке
+
+#### Сообщения инструментов дизайна
+
+Для работы инструментов анализа и генерации, плагин отправляет следующие сообщения:
+
+1. Анализ дизайна:
+```json
+{
+  "type": "ANALYZE_DESIGN",
+  "payload": {
+    "data": { /* данные о выбранных элементах */ },
+    "criteria": ["consistency", "accessibility", "usability"]
+  }
+}
+```
+
+2. Генерация кода:
+```json
+{
+  "type": "GENERATE_CODE",
+  "payload": {
+    "data": { /* данные о выбранных элементах */ },
+    "component_name": "Button",
+    "framework": "react",
+    "css_framework": "tailwind"
+  }
+}
+```
+
+3. Адаптивный дизайн:
+```json
+{
+  "type": "GENERATE_RESPONSIVE",
+  "payload": {
+    "data": { /* данные о выбранных элементах */ },
+    "breakpoints": ["mobile", "tablet", "desktop"]
+  }
+}
+```
+
+4. Варианты компонентов:
+```json
+{
+  "type": "GENERATE_VARIANTS",
+  "payload": {
+    "data": { /* данные о выбранных элементах */ },
+    "variant_types": ["colors", "sizes", "states"],
+    "count": 3
+  }
+}
+```
 
 Для добавления новых типов сообщений используйте декоратор `@ws_server.register_handler()`:
 
