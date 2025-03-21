@@ -1,10 +1,10 @@
-import { WebSocketMessage } from './types';
+import { WebSocketMessage } from '../types';
 
 export class WebSocketClient {
     private ws: WebSocket | null = null;
-    private messageHandlers: Map<string, (payload: unknown) => void> = new Map();
+    private messageHandlers: Map<string, (payload: any) => void> = new Map();
 
-    constructor(private url: string = "ws://localhost:8765") {}
+    constructor(private url: string = "ws://localhost:8767") {}
 
     connect(): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -41,7 +41,7 @@ export class WebSocketClient {
         }
     }
 
-    send(type: string, payload: unknown): void {
+    send(type: string, payload: any): void {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             const message: WebSocketMessage = { type, payload };
             this.ws.send(JSON.stringify(message));
@@ -50,8 +50,8 @@ export class WebSocketClient {
         }
     }
 
-    on(type: string, handler: (payload: unknown) => void): void {
-        this.messageHandlers.set(type, handler);
+    on<T = any>(type: string, handler: (payload: T) => void): void {
+        this.messageHandlers.set(type, handler as (payload: any) => void);
     }
 
     off(type: string): void {

@@ -96,4 +96,38 @@ class LLMAdapter(ABC):
         Returns:
             Список вариантов дизайна
         """
+        pass
+        
+    @abstractmethod
+    async def generate_code(self,
+                           prompt: str,
+                           framework: str = "react",
+                           css_framework: str = "tailwind") -> str:
+        """
+        Генерирует код на основе описания или данных Figma
+        
+        Args:
+            prompt: Описание или данные для генерации кода
+            framework: Используемый фреймворк (react, vue, angular)
+            css_framework: CSS фреймворк (tailwind, css, styled-components)
+            
+        Returns:
+            Сгенерированный код
+        """
+        pass
+        
+    @abstractmethod
+    async def generate_responsive_layout(self,
+                                       prompt: str,
+                                       breakpoints: List[str] = None) -> Dict[str, Any]:
+        """
+        Генерирует адаптивный макет для разных размеров экрана
+        
+        Args:
+            prompt: Описание или данные для генерации макета
+            breakpoints: Список точек излома (mobile, tablet, desktop)
+            
+        Returns:
+            Сгенерированный адаптивный макет
+        """
         pass 

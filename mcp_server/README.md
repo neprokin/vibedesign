@@ -18,6 +18,20 @@
 - [Figma Personal Access Token](https://www.figma.com/developers/api#access-tokens)
 - [OpenAI API Key](https://platform.openai.com/account/api-keys)
 
+### Настройка порта WebSocket
+
+Сервер использует WebSocket для коммуникации с плагином Figma. По умолчанию порт установлен на 8766.
+
+Вы можете изменить порт в файле `.env`:
+```
+WEBSOCKET_PORT=8766
+```
+
+Убедитесь, что порт в плагине Figma (файл `ui.html`) также соответствует данному значению:
+```javascript
+const serverUrl = 'ws://localhost:8766';
+```
+
 ### Установка зависимостей
 
 ```bash
@@ -43,7 +57,7 @@ OPENAI_API_KEY=your_openai_api_key
 
 # Портальные настройки
 MCP_PORT=5000
-WEBSOCKET_PORT=8765
+WEBSOCKET_PORT=8766
 
 # Конфигурация логирования
 LOG_LEVEL=INFO
@@ -59,7 +73,7 @@ python server.py
 
 После запуска сервер будет доступен:
 - MCP API на порту 5000
-- WebSocket на порту 8765
+- WebSocket на порту 8766
 
 ## Тестирование
 

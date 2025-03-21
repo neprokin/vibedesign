@@ -17,16 +17,40 @@ declare const figma: {
 // Базовый интерфейс для всех узлов Figma
 interface FigmaNode {
     id: string;
+    name: string;
     type: string;
+    visible: boolean;
+    locked: boolean;
     x: number;
     y: number;
     width: number;
     height: number;
-    fills: Paint[];
-    strokes: Paint[];
-    effects: Effect[];
-    resize: (width: number, height: number) => void;
-    remove: () => void;
+    fills?: Paint[];
+    strokes?: Paint[];
+    effects?: Effect[];
+    remove(): void;
+}
+
+// Типы для свойств
+interface Paint {
+    type: string;
+    visible: boolean;
+    opacity: number;
+    blendMode: string;
+    color?: { r: number; g: number; b: number };
+    boundVariables?: any;
+}
+
+interface Effect {
+    type: string;
+    visible: boolean;
+    radius: number;
+    color: { r: number; g: number; b: number; a: number };
+}
+
+interface FontName {
+    family: string;
+    style: string;
 }
 
 // Специфические типы узлов
@@ -52,50 +76,35 @@ interface FrameNode extends FigmaNode {
     counterAxisSizingMode: 'FIXED' | 'AUTO';
     primaryAxisAlignItems: 'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN';
     counterAxisAlignItems: 'MIN' | 'MAX' | 'CENTER' | 'SPACE_BETWEEN';
+    paddingTop: number;
+    paddingRight: number;
+    paddingBottom: number;
+    paddingLeft: number;
+    itemSpacing: number;
+    children: FigmaNode[];
 }
 
-interface FontName {
-    family: string;
-    style: string;
-}
+// Глобальный объект figma
+declare global {
+    interface PluginAPI {
+        showUI(html: string, options: { width: number; height: number }): void;
+        ui: {
+            postMessage(message: any): void;
+            onmessage: ((message: any) => void) | null;
+        };
+        clientStorage: {
+            getAsync(key: string): Promise<any>;
+            setAsync(key: string, value: any): Promise<void>;
+        };
+        currentPage: {
+            selection: FigmaNode[];
+        };
+        on(event: string, callback: () => void): void;
+        getNodeById(id: string): FigmaNode | null;
+        createRectangle(): RectangleNode;
+        createText(): TextNode;
+        createFrame(): FrameNode;
+    }
 
-interface Paint {
-    type: 'SOLID' | 'GRADIENT_LINEAR' | 'GRADIENT_RADIAL' | 'GRADIENT_DIAMOND' | 'GRADIENT_ANGULAR' | 'IMAGE';
-    color?: RGB;
-    opacity?: number;
-    visible?: boolean;
-    gradientTransform?: Transform;
-    gradientStops?: ColorStop[];
-    imageHash?: string;
-    imageTransform?: Transform;
-    scaleMode?: 'FILL' | 'FIT' | 'CROP' | 'TILE';
-}
-
-interface RGB {
-    r: number;
-    g: number;
-    b: number;
-}
-
-interface Effect {
-    type: 'DROP_SHADOW' | 'INNER_SHADOW' | 'LAYER_BLUR' | 'BACKGROUND_BLUR';
-    visible: boolean;
-    color?: RGB;
-    offset?: Vector;
-    radius: number;
-    spread?: number;
-}
-
-interface Vector {
-    x: number;
-    y: number;
-}
-
-interface Transform {
-    matrix: number[][];
-}
-
-interface ColorStop {
-    position: number;
-    color: RGB;
+    var figma: PluginAPI;
 } 

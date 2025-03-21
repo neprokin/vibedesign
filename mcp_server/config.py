@@ -2,7 +2,11 @@ import os
 import json
 from pathlib import Path
 from dotenv import load_dotenv
-from .types import MCPServerOptions
+import sys
+
+# Добавляем директорию mcp_server в sys.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from mcp_server.types import MCPServerOptions
 
 # Загружаем переменные окружения
 load_dotenv()

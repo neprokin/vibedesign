@@ -65,12 +65,13 @@ class WebSocketServer:
             except:
                 pass
 
-    async def handler(self, websocket: websockets.WebSocketServerProtocol):
+    async def handler(self, websocket: websockets.WebSocketServerProtocol, path: str = "/"):
         """
         Обработчик WebSocket соединения
         
         Args:
             websocket: WebSocket соединение
+            path: Путь WebSocket соединения
         """
         client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}"
         logger.info(f"Client connected: {client_info}")
@@ -82,7 +83,8 @@ class WebSocketServer:
                 "type": "WELCOME",
                 "payload": {
                     "message": "Connected to Figma MCP WebSocket Server",
-                    "version": "1.0"
+                    "version": "1.0",
+                    "path": path
                 }
             }))
             
@@ -104,20 +106,26 @@ class WebSocketServer:
             message_type: Тип сообщения
             payload: Данные сообщения
         """
-        message = json.dumps({"type": message_type, "payload": payload})
-        
         if not self.clients:
-            logger.warning(f"No clients connected to broadcast message: {message_type}")
             return
             
-        try:
-            await asyncio.gather(
-                *[client.send(message) for client in self.clients],
-                return_exceptions=True
-            )
-            logger.debug(f"Broadcasted message to {len(self.clients)} clients: {message_type}")
-        except Exception as e:
-            logger.error(f"Error broadcasting message: {e}")
+        message = json.dumps({
+            "type": message_type,
+            "payload": payload
+        })
+        
+        disconnected_clients = set()
+        for client in self.clients:
+            try:
+                await client.send(message)
+            except websockets.exceptions.ConnectionClosed:
+                disconnected_clients.add(client)
+            except Exception as e:
+                logger.error(f"Error broadcasting to client: {e}")
+                disconnected_clients.add(client)
+                
+        # Удаляем отключенных клиентов
+        self.clients -= disconnected_clients
 
     async def send_to_client(self, websocket: websockets.WebSocketServerProtocol, 
                            message_type: str, payload: Dict[str, Any]):
@@ -125,74 +133,70 @@ class WebSocketServer:
         Отправка сообщения конкретному клиенту
         
         Args:
-            websocket: WebSocket соединение
+            websocket: WebSocket соединение клиента
             message_type: Тип сообщения
             payload: Данные сообщения
         """
-        message = json.dumps({"type": message_type, "payload": payload})
         try:
+            message = json.dumps({
+                "type": message_type,
+                "payload": payload
+            })
             await websocket.send(message)
-            logger.debug(f"Sent message to client: {message_type}")
+        except websockets.exceptions.ConnectionClosed:
+            self.clients.remove(websocket)
         except Exception as e:
             logger.error(f"Error sending message to client: {e}")
 
     async def _run_server(self):
-        """Внутренний метод для запуска сервера в асинхронном режиме"""
+        """
+        Запуск WebSocket сервера
+        """
         try:
-            self.server = await websockets.serve(self.handler, self.host, self.port)
-            self._running = True
-            logger.info(f"WebSocket server started on ws://{self.host}:{self.port}")
-            await self.server.wait_closed()
+            async with websockets.serve(self.handler, self.host, self.port):
+                logger.info(f"server listening on {self.host}:{self.port}")
+                logger.info(f"WebSocket server started on ws://localhost:{self.port}")
+                await asyncio.Future()  # run forever
         except Exception as e:
             logger.error(f"Error starting WebSocket server: {e}")
-            self._running = False
+            raise
 
     def _run_in_thread(self):
-        """Запуск сервера в отдельном потоке"""
+        """
+        Запуск сервера в отдельном потоке
+        """
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
-        self.server_task = self.loop.create_task(self._run_server())
-        self.loop.run_forever()
+        self.loop.run_until_complete(self._run_server())
 
     def start(self, port: Optional[int] = None):
         """
         Запуск WebSocket сервера в отдельном потоке
         
         Args:
-            port: Порт для сервера (если отличается от порта, указанного при инициализации)
+            port: Порт для запуска сервера (опционально)
         """
         if self._running:
-            logger.warning("WebSocket server is already running")
             return
             
         if port is not None:
             self.port = port
             
-        self.thread = threading.Thread(target=self._run_in_thread, daemon=True)
+        self._running = True
+        self.thread = threading.Thread(target=self._run_in_thread)
+        self.thread.daemon = True
         self.thread.start()
-        
-        # Ждем небольшую паузу, чтобы сервер успел запуститься
-        import time
-        time.sleep(0.5)
-        
-        return self
 
     def stop(self):
-        """Остановка WebSocket сервера"""
+        """
+        Остановка WebSocket сервера
+        """
         if not self._running:
-            logger.warning("WebSocket server is not running")
             return
             
-        async def shutdown():
-            self.server.close()
-            await self.server.wait_closed()
-            
-        if self.loop:
-            asyncio.run_coroutine_threadsafe(shutdown(), self.loop)
-            self.loop.call_soon_threadsafe(self.loop.stop)
-            
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=5.0)
-            
         self._running = False
-        logger.info("WebSocket server stopped") 
+        if self.loop:
+            self.loop.call_soon_threadsafe(self.loop.stop)
+        if self.thread:
+            self.thread.join()
+        self.clients.clear() 

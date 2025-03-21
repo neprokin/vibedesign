@@ -157,7 +157,7 @@
         // WebSocket клиент
         let ws = null;
         let isConnected = false;
-        const serverUrl = 'ws://localhost:8766';
+        const serverUrl = 'ws://localhost:8767';
         const logHistory = [];
         
         // Функция для логирования
@@ -307,18 +307,24 @@
         // Отправка сообщения через WebSocket
         function sendMessageToServer(type, payload) {
             if (!ws || ws.readyState !== WebSocket.OPEN) {
-                log('Невозможно отправить сообщение: соединение не установлено', 'error');
-                return false;
+                log(`Не удалось отправить сообщение: соединение не установлено`, 'error');
+                return;
             }
             
             try {
-                const message = { type, payload };
-                ws.send(JSON.stringify(message));
-                log('Отправлено сообщение на сервер: ' + JSON.stringify(message), 'info');
-                return true;
-            } catch (error) {
-                log('Ошибка отправки сообщения: ' + error.message, 'error');
-                return false;
+                const fullMessage = JSON.stringify({
+                    type: type,
+                    payload: payload
+                });
+                
+                // Логируем отправляемое сообщение
+                log(`Отправка сообщения на сервер: ${type}`, 'info');
+                log(`Данные: ${JSON.stringify(payload, null, 2)}`, 'info');
+                
+                ws.send(fullMessage);
+                log(`Сообщение успешно отправлено!`, 'success');
+            } catch (e) {
+                log(`Ошибка отправки сообщения: ${e.message}`, 'error');
             }
         }
         
@@ -396,27 +402,85 @@
                     }
                     break;
                     
-                case 'SELECTION_DATA':
-                    // Получены данные о выделенных элементах
-                    if (message.payload && message.payload.tool) {
-                        const tool = message.payload.tool;
-                        const data = message.payload.data;
+                case 'SELECTION_CHANGED':
+                    // Отображение информации о выделении
+                    if (message.payload.hasSelection) {
+                        const nodes = message.payload.nodes;
+                        log(`Выбрано элементов: ${message.payload.count}`, 'info');
                         
-                        // Отправляем данные на сервер в зависимости от инструмента
-                        switch (tool) {
-                            case 'analyze':
-                                sendMessageToServer('ANALYZE_DESIGN', data);
-                                break;
-                            case 'code':
-                                sendMessageToServer('GENERATE_CODE', data);
-                                break;
-                            case 'responsive':
-                                sendMessageToServer('GENERATE_RESPONSIVE', data);
-                                break;
-                            case 'variants':
-                                sendMessageToServer('GENERATE_VARIANTS', data);
-                                break;
+                        // Вывод информации о первом выбранном элементе
+                        if (nodes.length > 0) {
+                            const firstNode = nodes[0];
+                            log(`Выбран: ${firstNode.name} (${firstNode.type})`, 'info');
+                            
+                            // Проверка наличия дочерних элементов
+                            if (firstNode.children && firstNode.children.length > 0) {
+                                log(`Содержит ${firstNode.children.length} дочерних элементов:`, 'info');
+                                
+                                // Вывод информации о каждом дочернем элементе
+                                firstNode.children.forEach((child, index) => {
+                                    log(`- ${child.name} (${child.type})`, 'info');
+                                });
+                            } else {
+                                log('Не содержит дочерних элементов', 'info');
+                            }
+                            
+                            // Проверка наличия Auto Layout
+                            if (firstNode.autoLayout) {
+                                log(`Auto Layout: ${firstNode.autoLayout.layoutMode}`, 'info');
+                            }
                         }
+                    } else {
+                        log('Нет выбранных элементов', 'info');
+                    }
+                    break;
+                    
+                case 'SELECTION_DATA':
+                    log(`Получены данные о выделении для: ${message.payload.tool}`, 'info');
+                    
+                    // Проверка наличия детей в первом узле
+                    if (message.payload.data && 
+                        message.payload.data.nodes && 
+                        message.payload.data.nodes.length > 0) {
+                        
+                        const firstNode = message.payload.data.nodes[0];
+                        
+                        // Проверяем наличие дочерних элементов в корне узла
+                        if (firstNode.children && firstNode.children.length > 0) {
+                            log(`Узел содержит ${firstNode.children.length} дочерних элементов:`, 'info');
+                            firstNode.children.forEach((child, index) => {
+                                log(`- ${child.name} (${child.type})`, 'info');
+                            });
+                        } 
+                        // Для совместимости со старой структурой
+                        else if (firstNode.properties && firstNode.properties.children) {
+                            const children = firstNode.properties.children;
+                            log(`Узел содержит ${children.length} дочерних элементов:`, 'info');
+                            children.forEach((child, index) => {
+                                log(`- Ребенок #${index+1}: ${child.name} (${child.type})`, 'info');
+                            });
+                        } else {
+                            log('Дочерние элементы не обнаружены в данных', 'warning');
+                        }
+                    }
+                    
+                    // Отправка данных на сервер в зависимости от инструмента
+                    let tool = message.payload.tool;
+                    let data = message.payload.data;
+                    
+                    switch(tool) {
+                        case 'analyze':
+                            sendMessageToServer('ANALYZE_DESIGN', data);
+                            break;
+                        case 'code':
+                            sendMessageToServer('GENERATE_CODE', data);
+                            break;
+                        case 'responsive':
+                            sendMessageToServer('GENERATE_RESPONSIVE', data);
+                            break;
+                        case 'variants':
+                            sendMessageToServer('GENERATE_VARIANTS', data);
+                            break;
                     }
                     break;
                     

@@ -4,13 +4,29 @@
   "description": "Figma plugin for design automation",
   "main": "dist/plugin.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "watch": "tsc -p tsconfig.json --watch"
+    "build": "npx webpack --mode production",
+    "watch": "npx webpack --mode development --watch",
+    "dev": "npx webpack --mode development --watch",
+    "test": "jest"
   },
   "dependencies": {
-    "@figma/plugin-typings": "^1.82.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-syntax-highlighter": "^15.5.0",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "@figma/plugin-typings": "^1.109.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/react-syntax-highlighter": "^15.5.10",
+    "copy-webpack-plugin": "^13.0.0",
+    "css-loader": "^6.9.0",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^3.3.4",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
-} 
+}

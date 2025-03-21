@@ -2,7 +2,7 @@ import os
 import json
 from typing import Dict, Any, List
 from dotenv import load_dotenv
-import openai
+from openai import AsyncOpenAI
 import jsonschema
 from .llm_adapter import LLMAdapter
 from .logger import logger
@@ -28,7 +28,7 @@ class OpenAIAdapter(LLMAdapter):
             raise ValueError("OpenAI API key is required")
         
         self.default_model = default_model
-        openai.api_key = self.api_key
+        self.client = AsyncOpenAI(api_key=self.api_key)
     
     async def send_prompt(self, 
                          prompt: str, 
@@ -45,7 +45,7 @@ class OpenAIAdapter(LLMAdapter):
         messages.append({"role": "user", "content": prompt})
         
         try:
-            response = await openai.ChatCompletion.acreate(
+            response = await self.client.chat.completions.create(
                 model=self.default_model,
                 messages=messages,
                 temperature=temperature,
@@ -65,7 +65,7 @@ class OpenAIAdapter(LLMAdapter):
         Отправляет серию сообщений в формате чата
         """
         try:
-            response = await openai.ChatCompletion.acreate(
+            response = await self.client.chat.completions.create(
                 model=self.default_model,
                 messages=messages,
                 temperature=temperature,
@@ -146,6 +146,22 @@ class OpenAIAdapter(LLMAdapter):
         # Конвертируем дизайн-данные в строку JSON
         design_json = json.dumps(design_data, ensure_ascii=False)
         
+        # Определяем, какой тип данных нам предоставлен
+        has_enhanced_data = "design_context" in design_data
+        has_inferred_properties = any("inferred_purpose" in node for node in design_data.get("nodes", []))
+        
+        # Формируем инструкцию для обработки улучшенных или неполных данных
+        enhanced_instructions = ""
+        if has_enhanced_data or has_inferred_properties:
+            enhanced_instructions = """
+            Некоторые аспекты дизайна были определены алгоритмически на основе имен и свойств элементов:
+            1. Поле "inferred_purpose" содержит алгоритмически определенное назначение элемента
+            2. Поле "description" в properties может содержать предполагаемое содержание контейнера
+            3. Поле "design_context" содержит дополнительный контекст о компоненте в целом
+            
+            Используй эту информацию для более глубокого анализа, особенно когда дочерние элементы не видны через API.
+            """
+        
         # Формируем критерии для анализа
         criteria_text = ""
         if criteria and len(criteria) > 0:
@@ -159,6 +175,11 @@ class OpenAIAdapter(LLMAdapter):
         {design_json}
         
         {criteria_text}
+        
+        {enhanced_instructions}
+        
+        Учитывай контекст и назначение компонента. Если в данных не хватает детальной информации о содержимом контейнеров,
+        делай разумные предположения на основе имени, размеров и других свойств элемента.
         
         Верни JSON с двумя полями:
         1. "analysis" - общий анализ дизайна
@@ -238,4 +259,130 @@ class OpenAIAdapter(LLMAdapter):
             json_schema=json_schema,
             system_message="Ты - эксперт по UI/UX дизайну. Используй только токены из контекста дизайн-системы.",
             temperature=0.7
-        ) 
+        )
+        
+    async def generate_code(self,
+                           prompt: str,
+                           framework: str = "react",
+                           css_framework: str = "tailwind") -> str:
+        """
+        Генерирует код на основе описания или данных Figma
+        
+        Args:
+            prompt: Описание или данные для генерации кода
+            framework: Используемый фреймворк (react, vue, angular)
+            css_framework: CSS фреймворк (tailwind, css, styled-components)
+            
+        Returns:
+            Сгенерированный код
+        """
+        system_message = f"""
+        Ты - опытный frontend-разработчик, специализирующийся на {framework} и {css_framework}. 
+        Твоя задача - создавать чистый, семантически правильный и доступный код на основе дизайна из Figma.
+        Следуй лучшим практикам разработки для {framework} и оптимизируй код для производительности.
+        """
+        
+        try:
+            code = await self.send_prompt(
+                prompt=prompt,
+                system_message=system_message,
+                temperature=0.4,
+                max_tokens=2000
+            )
+            
+            # Если код обёрнут в кодовые блоки markdown, извлекаем его
+            if "```" in code:
+                # Извлекаем код из кодовых блоков markdown
+                code_blocks = []
+                lines = code.split('\n')
+                in_code_block = False
+                current_block = []
+                
+                for line in lines:
+                    if line.startswith("```"):
+                        if in_code_block:
+                            code_blocks.append('\n'.join(current_block))
+                            current_block = []
+                        in_code_block = not in_code_block
+                        continue
+                    
+                    if in_code_block:
+                        current_block.append(line)
+                
+                if code_blocks:
+                    # Объединяем все блоки кода
+                    return '\n\n'.join(code_blocks)
+            
+            return code
+        except Exception as e:
+            logger.error(f"Error in generate_code: {e}")
+            raise
+            
+    async def generate_responsive_layout(self,
+                                       prompt: str,
+                                       breakpoints: List[str] = None) -> Dict[str, Any]:
+        """
+        Генерирует адаптивный макет для разных размеров экрана
+        
+        Args:
+            prompt: Описание или данные для генерации макета
+            breakpoints: Список точек излома (mobile, tablet, desktop)
+            
+        Returns:
+            Сгенерированный адаптивный макет
+        """
+        if breakpoints is None:
+            breakpoints = ["mobile", "tablet", "desktop"]
+            
+        breakpoints_str = ', '.join(breakpoints)
+        
+        system_message = f"""
+        Ты - эксперт по адаптивному дизайну, специализирующийся на создании 
+        отзывчивых макетов, которые хорошо работают на разных устройствах.
+        Твоя задача - предложить адаптации дизайна для следующих брейкпоинтов: {breakpoints_str}.
+        """
+        
+        prompt_with_breakpoints = f"""
+        {prompt}
+        
+        Создай адаптивный макет для следующих брейкпоинтов: {breakpoints_str}.
+        
+        Для каждого брейкпоинта опиши:
+        1. Изменения в расположении элементов
+        2. Изменения размеров и отступов
+        3. Особенности адаптации для конкретного размера экрана
+        """
+        
+        json_schema = {
+            "type": "object",
+            "required": ["layout", "breakpoints"],
+            "properties": {
+                "layout": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "required": ["width", "changes", "description"],
+                        "properties": {
+                            "width": {"type": "string"},
+                            "changes": {"type": "array", "items": {"type": "string"}},
+                            "description": {"type": "string"}
+                        }
+                    }
+                },
+                "breakpoints": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        }
+        
+        try:
+            return await self.generate_json(
+                prompt=prompt_with_breakpoints,
+                json_schema=json_schema,
+                system_message=system_message,
+                temperature=0.5
+            )
+        except Exception as e:
+            logger.error(f"Error in generate_responsive_layout: {e}")
+            raise 
