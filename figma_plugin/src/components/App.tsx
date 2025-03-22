@@ -185,7 +185,7 @@ const App: React.FC = () => {
   if (isInitializing) {
     return (
       <div className="container">
-        <h1>Figma Automation</h1>
+        <h1>Vibe Design</h1>
         <div className="loading-message">Инициализация плагина...</div>
       </div>
     );

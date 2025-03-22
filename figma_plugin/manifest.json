@@ -1,6 +1,6 @@
 {
-  "name": "Figma Automation",
-  "id": "figma-automation",
+  "name": "Vibe Design",
+  "id": "vibe-design",
   "api": "1.0.0",
   "main": "dist/plugin.js",
   "ui": "ui.html",
