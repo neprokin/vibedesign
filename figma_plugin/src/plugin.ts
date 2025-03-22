@@ -46,79 +46,187 @@ const saveSettings = async (settings: Partial<ServerSettings>) => {
 
 // Функция для рекурсивного получения всего дерева начиная с указанного узла
 function getSceneTree(node: any): any {
-  console.log(`Getting scene tree for ${node.name} (${node.type})`);
+  console.log(`[DEBUG] Starting to process node: ${node.name} (${node.type})`);
   
-  // Базовая информация о узле
-  const nodeInfo = {
-    id: node.id,
-    name: node.name,
-    type: node.type,
-    visible: node.visible,
-    locked: node.locked,
-    x: node.x,
-    y: node.y,
-    width: node.width,
-    height: node.height
-  };
-  
-  // Специфические свойства в зависимости от типа узла
-  if (node.type === 'TEXT') {
-    nodeInfo['text'] = {
-      characters: node.characters,
-      fontSize: node.fontSize,
-      fontName: node.fontName,
-      textAlignHorizontal: node.textAlignHorizontal,
-      textAlignVertical: node.textAlignVertical
+  try {
+    // Базовая информация о узле (безопасные свойства)
+    const nodeInfo: any = {
+      id: node.id,
+      name: node.name,
+      type: node.type
     };
-  }
-  
-  if ('fills' in node) {
-    nodeInfo['fills'] = node.fills;
-  }
-  
-  if ('strokes' in node) {
-    nodeInfo['strokes'] = node.strokes;
-  }
-  
-  if ('effects' in node) {
-    nodeInfo['effects'] = node.effects;
-  }
-  
-  // Auto Layout свойства (если узел является фреймом с Auto Layout)
-  if ('layoutMode' in node && node.layoutMode !== 'NONE') {
-    nodeInfo['autoLayout'] = {
-      layoutMode: node.layoutMode,
-      primaryAxisSizingMode: node.primaryAxisSizingMode,
-      counterAxisSizingMode: node.counterAxisSizingMode,
-      primaryAxisAlignItems: node.primaryAxisAlignItems,
-      counterAxisAlignItems: node.counterAxisAlignItems,
-      padding: {
+
+    // Безопасно добавляем свойства, только если они существуют
+    if ('visible' in node) nodeInfo.visible = node.visible;
+    if ('locked' in node) nodeInfo.locked = node.locked;
+    if ('x' in node) nodeInfo.x = node.x;
+    if ('y' in node) nodeInfo.y = node.y;
+    if ('width' in node) nodeInfo.width = node.width;
+    if ('height' in node) nodeInfo.height = node.height;
+    
+    console.log(`[DEBUG] Basic node info collected for ${node.name}`);
+    
+    // Специфические свойства в зависимости от типа узла
+    if (node.type === 'TEXT' && 'characters' in node) {
+      console.log(`[DEBUG] Processing TEXT node: ${node.name}`);
+      nodeInfo.text = {
+        characters: node.characters
+      };
+      // Безопасно добавляем дополнительные текстовые свойства
+      if ('fontSize' in node) nodeInfo.text.fontSize = node.fontSize;
+      if ('fontName' in node) nodeInfo.text.fontName = node.fontName;
+      if ('textAlignHorizontal' in node) nodeInfo.text.textAlignHorizontal = node.textAlignHorizontal;
+      if ('textAlignVertical' in node) nodeInfo.text.textAlignVertical = node.textAlignVertical;
+    }
+    
+    // Безопасно проверяем и добавляем fills
+    if ('fills' in node && node.fills) {
+      try {
+        nodeInfo.fills = JSON.parse(JSON.stringify(node.fills));
+      } catch (error) {
+        console.warn(`[WARN] Could not process fills for ${node.name}`);
+      }
+    }
+    
+    // Безопасно проверяем и добавляем strokes
+    if ('strokes' in node && node.strokes) {
+      try {
+        nodeInfo.strokes = JSON.parse(JSON.stringify(node.strokes));
+      } catch (error) {
+        console.warn(`[WARN] Could not process strokes for ${node.name}`);
+      }
+    }
+    
+    // Безопасно проверяем и добавляем effects
+    if ('effects' in node && node.effects) {
+      try {
+        nodeInfo.effects = JSON.parse(JSON.stringify(node.effects));
+      } catch (error) {
+        console.warn(`[WARN] Could not process effects for ${node.name}`);
+      }
+    }
+    
+    // Auto Layout свойства - безопасная проверка
+    if ('layoutMode' in node && node.layoutMode !== 'NONE') {
+      console.log(`[DEBUG] Processing Auto Layout for ${node.name}`);
+      nodeInfo.autoLayout = {
+        layoutMode: node.layoutMode
+      };
+      
+      // Безопасно добавляем свойства Auto Layout
+      if ('primaryAxisSizingMode' in node) nodeInfo.autoLayout.primaryAxisSizingMode = node.primaryAxisSizingMode;
+      if ('counterAxisSizingMode' in node) nodeInfo.autoLayout.counterAxisSizingMode = node.counterAxisSizingMode;
+      if ('primaryAxisAlignItems' in node) nodeInfo.autoLayout.primaryAxisAlignItems = node.primaryAxisAlignItems;
+      if ('counterAxisAlignItems' in node) nodeInfo.autoLayout.counterAxisAlignItems = node.counterAxisAlignItems;
+      if ('paddingTop' in node) nodeInfo.autoLayout.padding = {
         top: node.paddingTop,
         right: node.paddingRight,
         bottom: node.paddingBottom,
         left: node.paddingLeft
-      },
-      itemSpacing: node.itemSpacing,
-      clipsContent: node.clipsContent
+      };
+      if ('itemSpacing' in node) nodeInfo.autoLayout.itemSpacing = node.itemSpacing;
+      if ('clipsContent' in node) nodeInfo.autoLayout.clipsContent = node.clipsContent;
+    }
+
+    // Безопасная обработка компонентов и их экземпляров
+    if (node.type === 'INSTANCE') {
+      console.log(`[DEBUG] Processing INSTANCE node: ${node.name}`);
+      try {
+        const instance = node as InstanceNode;
+        nodeInfo.componentData = {
+          type: 'instance',
+          id: instance.id
+        };
+        
+        // Безопасно пытаемся получить информацию о главном компоненте
+        try {
+          if (instance.mainComponent) {
+            nodeInfo.componentData.mainComponentName = instance.mainComponent.name;
+            nodeInfo.componentData.mainComponentId = instance.mainComponent.id;
+          }
+        } catch (error) {
+          console.warn(`[WARN] Could not access mainComponent for instance ${node.name}`);
+        }
+        
+        // Безопасно пытаемся получить override'ы
+        try {
+          if ('overrides' in instance) {
+            nodeInfo.componentData.overrides = instance.overrides;
+          }
+        } catch (error) {
+          console.warn(`[WARN] Could not access overrides for instance ${node.name}`);
+        }
+      } catch (error) {
+        console.warn(`[WARN] Error processing instance ${node.name}:`, error);
+      }
+    }
+
+    if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') {
+      console.log(`[DEBUG] Processing ${node.type} node: ${node.name}`);
+      try {
+        nodeInfo.componentData = {
+          type: node.type.toLowerCase(),
+          id: node.id
+        };
+        
+        // Безопасно добавляем дополнительные свойства компонента
+        if ('description' in node) nodeInfo.componentData.description = node.description;
+        if ('key' in node) nodeInfo.componentData.key = node.key;
+        
+        // Для COMPONENT_SET пытаемся получить варианты
+        if (node.type === 'COMPONENT_SET' && 'variantGroupProperties' in node) {
+          try {
+            nodeInfo.componentData.variantGroupProperties = node.variantGroupProperties;
+          } catch (error) {
+            console.warn(`[WARN] Could not access variant properties for ${node.name}`);
+          }
+        }
+      } catch (error) {
+        console.warn(`[WARN] Error processing component ${node.name}:`, error);
+      }
+    }
+    
+    // Безопасная обработка дочерних элементов
+    if ('children' in node) {
+      try {
+        // Проверяем, можно ли получить доступ к children
+        const children = node.children;
+        if (Array.isArray(children)) {
+          console.log(`[DEBUG] Processing children for ${node.name} (${children.length} children)`);
+          nodeInfo.children = [];
+          
+          for (const child of children) {
+            try {
+              if (child && typeof child === 'object') {
+                console.log(`[DEBUG] Processing child: ${child.name} (${child.type}) of ${node.name}`);
+                const childInfo = getSceneTree(child);
+                if (childInfo) {
+                  nodeInfo.children.push(childInfo);
+                }
+              }
+            } catch (childError) {
+              console.warn(`[WARN] Skipping child of ${node.name}:`, childError);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`[WARN] Could not process children for ${node.name}:`, error);
+        nodeInfo.children = [];
+      }
+    }
+    
+    console.log(`[DEBUG] Successfully processed node: ${node.name}`);
+    return nodeInfo;
+  } catch (error) {
+    console.error(`[ERROR] Failed to process node ${node.name}:`, error);
+    // Возвращаем минимальную безопасную информацию
+    return {
+      id: node.id || 'unknown',
+      name: node.name || 'unknown',
+      type: node.type || 'unknown',
+      error: 'Failed to process node'
     };
   }
-  
-  // Дочерние элементы (только если они есть и доступны через API)
-  if ('children' in node && node.children && node.children.length > 0) {
-    console.log(`Node ${node.name} has ${node.children.length} children`);
-    nodeInfo['children'] = [];
-    
-    try {
-      // Рекурсивно получаем информацию о дочерних элементах
-      for (const child of node.children) {
-        nodeInfo['children'].push(getSceneTree(child));
-      }
-    } catch (error) {
-      console.error(`Error processing children for ${node.name}:`, error);
-    }
-  }
-  
-  return nodeInfo;
 }
 
 // Функция для получения информации о выбранных элементах
@@ -476,4 +584,68 @@ figma.ui.onmessage = async (msg: any) => {
       }
       break;
   }
-}; 
+};
+
+function processSelectedNode(node: SceneNode): any {
+  try {
+    // Базовая информация о ноде
+    const nodeInfo = {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      visible: node.visible,
+      locked: node.locked
+    };
+
+    // Обработка INSTANCE
+    if (node.type === 'INSTANCE') {
+      const instance = node as InstanceNode;
+      nodeInfo.componentData = {
+        mainComponentName: instance.mainComponent?.name || 'Unknown',
+        mainComponentId: instance.mainComponent?.id || 'Unknown',
+        overrides: instance.overrides || []
+      };
+    }
+
+    // Обработка COMPONENT
+    if (node.type === 'COMPONENT') {
+      const component = node as ComponentNode;
+      nodeInfo.componentData = {
+        description: component.description || '',
+        key: component.key
+      };
+    }
+
+    // Обработка дочерних элементов для всех типов контейнеров
+    if ('children' in node) {
+      try {
+        nodeInfo.children = (node as ChildrenMixin).children.map(child => {
+          try {
+            return processSelectedNode(child);
+          } catch (childError) {
+            console.warn(`Skipping child node ${child.name}: ${childError.message}`);
+            return {
+              id: child.id,
+              name: child.name,
+              type: child.type,
+              error: 'Failed to process child node'
+            };
+          }
+        }).filter(Boolean);
+      } catch (childrenError) {
+        console.warn(`Error processing children of ${node.name}: ${childrenError.message}`);
+        nodeInfo.children = [];
+      }
+    }
+
+    return nodeInfo;
+  } catch (error) {
+    console.error(`Error processing node ${node.name}: ${error.message}`);
+    return {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      error: 'Failed to process node'
+    };
+  }
+} 
