@@ -157,7 +157,7 @@
         // WebSocket клиент
         let ws = null;
         let isConnected = false;
-        const serverUrl = 'ws://localhost:8767';
+        const serverUrl = 'ws://localhost:8768';
         const logHistory = [];
         
         // Функция для логирования
@@ -473,7 +473,7 @@
                             sendMessageToServer('ANALYZE_DESIGN', data);
                             break;
                         case 'code':
-                            sendMessageToServer('GENERATE_CODE', data);
+                            sendMessageToServer('GENERATE_CODE_REQUEST', data);
                             break;
                         case 'responsive':
                             sendMessageToServer('GENERATE_RESPONSIVE', data);

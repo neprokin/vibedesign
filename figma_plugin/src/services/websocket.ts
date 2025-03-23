@@ -4,7 +4,7 @@ export class WebSocketClient {
     private ws: WebSocket | null = null;
     private messageHandlers: Map<string, (payload: any) => void> = new Map();
 
-    constructor(private url: string = "ws://localhost:8767") {}
+    constructor(private url: string = "ws://localhost:8768") {}
 
     connect(): Promise<void> {
         return new Promise((resolve, reject) => {
