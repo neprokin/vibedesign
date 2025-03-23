@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   
   // URL сервера в настройках
-  const [serverUrl, setServerUrl] = useState<string>("ws://localhost:8767");
+  const [serverUrl, setServerUrl] = useState<string>("ws://localhost:8768");
 
   // Эффект при монтировании компонента
   useEffect(() => {
@@ -151,7 +151,7 @@ const App: React.FC = () => {
       case 'code':
         parent.postMessage({
           pluginMessage: {
-            type: 'GENERATE_CODE',
+            type: 'GENERATE_CODE_REQUEST',
             payload: data
           }
         }, '*');

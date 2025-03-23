@@ -5,9 +5,19 @@ import {
     LogEntry
 } from './types';
 
+import { EventService } from './services/event-service';
+import { NodeUpdater } from './services/node-updater';
+import { FigmaEventType, createEvent } from './types/events';
+import { 
+  UIMessage, 
+  ConnectMessage, 
+  UpdateNodeMessage, 
+  LogEntryMessage 
+} from './types/ui-messages';
+
 // Настройки по умолчанию
 const DEFAULT_SETTINGS: ServerSettings = {
-  serverUrl: "ws://localhost:8767"
+  serverUrl: "ws://localhost:8768"
 };
 
 // Состояние плагина
@@ -18,31 +28,12 @@ let logEntries: LogEntry[] = [];
 // Максимальное количество сохраняемых логов
 const MAX_LOGS = 1000;
 
-// Загрузка настроек из локального хранилища
-const loadSettings = async () => {
-  try {
-    const settings = await figma.clientStorage.getAsync('serverSettings');
-    if (settings) {
-      serverSettings = { ...DEFAULT_SETTINGS, ...settings };
-    }
-    return serverSettings;
-  } catch (error) {
-    console.error('Error loading settings:', error);
-    return DEFAULT_SETTINGS;
-  }
-};
-
-// Сохранение настроек в локальное хранилище
-const saveSettings = async (settings: Partial<ServerSettings>) => {
-  try {
-    serverSettings = { ...serverSettings, ...settings };
-    await figma.clientStorage.setAsync('serverSettings', serverSettings);
-    return true;
-  } catch (error) {
-    console.error('Error saving settings:', error);
-    return false;
-  }
-};
+// Определяем тип для записи лога
+export interface LogEntry {
+  timestamp: number;
+  level: string;
+  message: string;
+}
 
 // Функция для рекурсивного получения всего дерева начиная с указанного узла
 function getSceneTree(node: any): any {
@@ -335,254 +326,394 @@ figma.on('selectionchange', async () => {
 // Основной файл плагина
 figma.showUI(__html__, { width: 450, height: 650 });
 
-// Обработка сообщений от UI
-figma.ui.onmessage = async (msg: any) => {
-  console.log('Message received from UI:', msg);
+// Инициализация сервисов
+const eventService = new EventService(serverSettings.serverUrl, true); // Включаем режим отладки
+const nodeUpdater = new NodeUpdater(eventService, true); // Включаем режим отладки
+
+// Подключаемся к серверу при запуске плагина
+eventService.connect().catch(error => {
+  console.error("Failed to connect to WebSocket server:", error);
   
-  switch (msg.type) {
-    case 'UI_LOADED':
-      // UI успешно загружен
-      console.log('UI loaded');
-      
-      // Отправить текущие сохраненные логи обратно в UI
-      try {
-        const savedLogs = await figma.clientStorage.getAsync('logEntries') as LogEntry[] || [];
-        
-        if (savedLogs && savedLogs.length > 0) {
-          figma.ui.postMessage({ 
-            type: 'SAVED_LOGS', 
-            payload: { logs: savedLogs }
-          });
-        }
-      } catch (error) {
-        console.error('Error loading saved logs:', error);
-      }
-      break;
-      
-    case 'LOG_ENTRY':
-      // Получен новый лог от UI
-      if (msg.payload) {
-        // Добавить в локальный кэш
-        logEntries.push(msg.payload as LogEntry);
-        
-        // Ограничить количество логов
-        if (logEntries.length > MAX_LOGS) {
-          logEntries = logEntries.slice(-MAX_LOGS);
-        }
-        
-        // Сохранить в clientStorage
-        try {
-          await figma.clientStorage.setAsync('logEntries', logEntries);
-        } catch (error) {
-          console.error('Error saving logs:', error);
-        }
-      }
-      break;
-      
-    case 'EXPORT_LOGS':
-      // Запрос на экспорт логов
-      try {
-        // Получить все логи
-        const allLogs = [...logEntries];
-        
-        // Форматировать логи
-        const formattedLogs = allLogs.map(log => 
-          `[${new Date(log.timestamp).toLocaleString()}] [${log.level.toUpperCase()}] ${log.message}`
-        ).join('\n');
-        
-        // Отправить логи обратно в UI для скачивания
-        figma.ui.postMessage({ 
-          type: 'LOGS_EXPORT_DATA', 
-          payload: { 
-            logsText: formattedLogs,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to export logs: ' + (error instanceof Error ? error.message : String(error)) }
-        });
-      }
-      break;
-      
-    case 'CLEAR_LOGS':
-      // Очистка логов
-      logEntries = [];
-      try {
-        await figma.clientStorage.setAsync('logEntries', []);
-        figma.ui.postMessage({ type: 'LOGS_CLEARED' });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to clear logs' }
-        });
-      }
-      break;
-      
-    case 'CONNECTION_CHANGED':
-      // Статус соединения изменился
-      if (msg.payload && typeof msg.payload.connected === 'boolean') {
-        isConnected = msg.payload.connected;
-        console.log('Connection status changed:', isConnected);
-      }
-      break;
-      
-    case 'SERVER_MESSAGE':
-      // Получено сообщение от сервера через WebSocket
-      if (msg.payload) {
-        console.log('Server message received:', msg.payload);
-        // Обработка различных типов сообщений от сервера
-        const serverMessage = msg.payload;
-        if (serverMessage.type === 'ANALYSIS_RESULT' || 
-            serverMessage.type === 'CODE_GENERATED' || 
-            serverMessage.type === 'RESPONSIVE_GENERATED' || 
-            serverMessage.type === 'VARIANTS_GENERATED') {
+  // Обновляем UI с сообщением об ошибке
+  figma.ui.postMessage({
+    type: "CONNECTION_ERROR",
+    message: "Failed to connect to server: " + error.message
+  });
+});
+
+// Функция для обработки сообщений от UI-потока
+figma.ui.onmessage = async (msg: any) => {
+  try {
+    const message = msg as UIMessage;
+    
+    switch (message.type) {
+      case "CONNECT":
+        // Подключение к серверу с новыми настройками
+        const connectMsg = message as ConnectMessage;
+        if (connectMsg.serverUrl) {
+          serverSettings.serverUrl = connectMsg.serverUrl;
+          await saveSettings({ serverUrl: connectMsg.serverUrl });
+          
+          // Отключаемся от текущего соединения
+          eventService.disconnect();
+          
+          // Подключаемся с новыми настройками
+          await eventService.connect();
+          
+          // Уведомляем UI об успешном подключении
           figma.ui.postMessage({
-            type: 'SERVER_RESPONSE',
-            payload: serverMessage
+            type: "CONNECTION_STATUS",
+            connected: true
           });
         }
-      }
-      break;
-      
-    case 'REQUEST_ANALYZE_DESIGN':
-      try {
-        const selectionData = await getSelectionInfo();
-        if (!selectionData.hasSelection) {
+        break;
+        
+      case "GET_SELECTION":
+        // Получаем информацию о выделенных элементах
+        const selectionInfo = await getSelectionInfo();
+        
+        // Отправляем информацию в UI
+        figma.ui.postMessage({
+          type: "SELECTION_INFO",
+          selection: selectionInfo
+        });
+        
+        // Отправляем событие выбора элементов на сервер через новую систему
+        if (selectionInfo.hasSelection) {
+          const selectionEvent = createEvent(
+            FigmaEventType.SELECTION_CHANGE,
+            selectionInfo,
+            'plugin'
+          );
+          
+          eventService.sendEvent(selectionEvent);
+        }
+        break;
+        
+      case "UPDATE_NODE":
+        try {
+          // Получаем параметры
+          const updateMsg = message as UpdateNodeMessage;
+          const { nodeId, properties } = updateMsg;
+          
+          if (!nodeId || !properties) {
+            throw new Error("Node ID and properties are required");
+          }
+          
+          // Используем NodeUpdater для обновления узла
+          const result = await nodeUpdater.updateNode(nodeId, properties);
+          
+          // Отправляем результат в UI
+          figma.ui.postMessage({
+            type: "NODE_UPDATED",
+            nodeId,
+            success: result.success,
+            properties: result.updatedProperties
+          });
+        } catch (error) {
+          console.error("Error updating node:", error);
+          
+          // Отправляем ошибку в UI
+          figma.ui.postMessage({
+            type: "UPDATE_ERROR",
+            message: error instanceof Error ? error.message : String(error)
+          });
+        }
+        break;
+        
+      case 'UI_LOADED':
+        // UI успешно загружен
+        console.log('UI loaded');
+        
+        // Отправить текущие сохраненные логи обратно в UI
+        try {
+          const savedLogs = await figma.clientStorage.getAsync('logEntries') as LogEntry[] || [];
+          
+          if (savedLogs && savedLogs.length > 0) {
+            figma.ui.postMessage({ 
+              type: 'SAVED_LOGS', 
+              payload: { logs: savedLogs }
+            });
+          }
+        } catch (error) {
+          console.error('Error loading saved logs:', error);
+        }
+        break;
+        
+      case 'LOG_ENTRY':
+        // Получен новый лог от UI
+        const logMsg = message as LogEntryMessage;
+        if (logMsg.payload) {
+          // Добавить в локальный кэш
+          logEntries.push(logMsg.payload as LogEntry);
+          
+          // Ограничить количество логов
+          if (logEntries.length > MAX_LOGS) {
+            logEntries = logEntries.slice(-MAX_LOGS);
+          }
+          
+          // Сохранить в clientStorage
+          try {
+            await figma.clientStorage.setAsync('logEntries', logEntries);
+          } catch (error) {
+            console.error('Error saving logs:', error);
+          }
+        }
+        break;
+        
+      case 'EXPORT_LOGS':
+        // Запрос на экспорт логов
+        try {
+          // Получить все логи
+          const allLogs = [...logEntries];
+          
+          // Форматировать логи
+          const formattedLogs = allLogs.map(log => 
+            `[${new Date(log.timestamp).toLocaleString()}] [${log.level.toUpperCase()}] ${log.message}`
+          ).join('\n');
+          
+          // Отправить логи обратно в UI для скачивания
           figma.ui.postMessage({ 
-            type: 'ERROR', 
-            payload: { message: 'No elements selected' }
-          });
-          return;
-        }
-        
-        console.log('Complete selection data (with tree):', JSON.stringify(selectionData, null, 2));
-        
-        // Отправить полные данные о выделенных элементах в UI для дальнейшей отправки на сервер
-        figma.ui.postMessage({ 
-          type: 'SELECTION_DATA', 
-          payload: {
-            tool: 'analyze',
-            data: {
-              hasSelection: selectionData.hasSelection,
-              count: selectionData.count,
-              nodes: selectionData.nodes
+            type: 'LOGS_EXPORT_DATA', 
+            payload: { 
+              logsText: formattedLogs,
+              timestamp: new Date().toISOString()
             }
-          }
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
-        });
-      }
-      break;
-      
-    case 'REQUEST_GENERATE_CODE':
-      try {
-        const selectionData = await getSelectionInfo();
-        if (!selectionData.hasSelection) {
+          });
+        } catch (error) {
           figma.ui.postMessage({ 
             type: 'ERROR', 
-            payload: { message: 'No elements selected' }
+            payload: { message: 'Failed to export logs: ' + (error instanceof Error ? error.message : String(error)) }
           });
-          return;
         }
+        break;
         
-        figma.ui.postMessage({ 
-          type: 'SELECTION_DATA', 
-          payload: {
-            tool: 'code',
-            data: selectionData
-          }
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
-        });
-      }
-      break;
-      
-    case 'REQUEST_GENERATE_RESPONSIVE':
-      try {
-        const selectionData = await getSelectionInfo();
-        if (!selectionData.hasSelection) {
+      case 'CLEAR_LOGS':
+        // Очистка логов
+        logEntries = [];
+        try {
+          await figma.clientStorage.setAsync('logEntries', []);
+          figma.ui.postMessage({ type: 'LOGS_CLEARED' });
+        } catch (error) {
           figma.ui.postMessage({ 
             type: 'ERROR', 
-            payload: { message: 'No elements selected' }
+            payload: { message: 'Failed to clear logs' }
           });
-          return;
         }
+        break;
         
-        figma.ui.postMessage({ 
-          type: 'SELECTION_DATA', 
-          payload: {
-            tool: 'responsive',
-            data: selectionData
+      case 'CONNECTION_CHANGED':
+        // Статус соединения изменился
+        if (msg.payload && typeof msg.payload.connected === 'boolean') {
+          isConnected = msg.payload.connected;
+          console.log('Connection status changed:', isConnected);
+        }
+        break;
+        
+      case 'SERVER_MESSAGE':
+        // Получено сообщение от сервера через WebSocket
+        if (msg.payload) {
+          console.log('Server message received:', msg.payload);
+          // Обработка различных типов сообщений от сервера
+          const serverMessage = msg.payload;
+          if (serverMessage.type === 'ANALYSIS_RESULT' || 
+              serverMessage.type === 'CODE_GENERATED' || 
+              serverMessage.type === 'RESPONSIVE_GENERATED' || 
+              serverMessage.type === 'VARIANTS_GENERATED') {
+            figma.ui.postMessage({
+              type: 'SERVER_RESPONSE',
+              payload: serverMessage
+            });
           }
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
-        });
-      }
-      break;
-      
-    case 'REQUEST_GENERATE_VARIANTS':
-      try {
-        const selectionData = await getSelectionInfo();
-        if (!selectionData.hasSelection) {
+        }
+        break;
+        
+      case 'REQUEST_ANALYZE_DESIGN':
+        try {
+          const selectionData = await getSelectionInfo();
+          if (!selectionData.hasSelection) {
+            figma.ui.postMessage({ 
+              type: 'ERROR', 
+              payload: { message: 'No elements selected' }
+            });
+            return;
+          }
+          
+          console.log('Complete selection data (with tree):', JSON.stringify(selectionData, null, 2));
+          
+          // Отправить полные данные о выделенных элементах в UI для дальнейшей отправки на сервер
+          figma.ui.postMessage({ 
+            type: 'SELECTION_DATA', 
+            payload: {
+              tool: 'analyze',
+              data: {
+                hasSelection: selectionData.hasSelection,
+                count: selectionData.count,
+                nodes: selectionData.nodes
+              }
+            }
+          });
+        } catch (error) {
           figma.ui.postMessage({ 
             type: 'ERROR', 
-            payload: { message: 'No elements selected' }
+            payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
           });
-          return;
         }
+        break;
         
-        figma.ui.postMessage({ 
-          type: 'SELECTION_DATA', 
-          payload: {
-            tool: 'variants',
-            data: selectionData
+      case 'REQUEST_GENERATE_CODE':
+        try {
+          const selectionData = await getSelectionInfo();
+          if (!selectionData.hasSelection) {
+            figma.ui.postMessage({ 
+              type: 'ERROR', 
+              payload: { message: 'No elements selected' }
+            });
+            return;
           }
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
-        });
-      }
-      break;
-      
-    case 'UPDATE_SETTINGS':
-      try {
-        await saveSettings(msg.payload);
-        figma.ui.postMessage({ type: 'SETTINGS_UPDATED' });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to save settings' }
-        });
-      }
-      break;
-      
-    case 'GET_SETTINGS':
-      try {
-        const settings = await loadSettings();
-        figma.ui.postMessage({ 
-          type: 'SETTINGS', 
-          payload: settings 
-        });
-      } catch (error) {
-        figma.ui.postMessage({ 
-          type: 'ERROR', 
-          payload: { message: 'Failed to load settings' }
-        });
-      }
-      break;
+          
+          // Отправляем данные о выбранных элементах обратно в UI
+          figma.ui.postMessage({ 
+            type: 'SELECTION_DATA', 
+            payload: {
+              tool: 'code',
+              data: selectionData
+            }
+          });
+        } catch (error) {
+          figma.ui.postMessage({ 
+            type: 'ERROR', 
+            payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
+          });
+        }
+        break;
+        
+      case 'GENERATE_CODE_REQUEST':
+        try {
+          const { payload } = msg;
+          
+          // Создаем событие для отправки на сервер
+          const eventPayload = {
+            designData: payload.data.nodes,
+            framework: payload.framework || "react",
+            cssFramework: payload.cssFramework || "tailwind",
+            componentName: payload.componentName || "Component",
+            responsive: payload.responsive !== undefined ? payload.responsive : true
+          };
+          
+          // Отправляем событие на сервер через EventService
+          eventService.sendEvent(FigmaEventType.GENERATE_CODE_REQUEST, eventPayload);
+          
+          // Информируем UI о начале процесса генерации
+          figma.ui.postMessage({
+            type: 'GENERATE_CODE_PROGRESS',
+            payload: {
+              status: 'started',
+              message: 'Отправлен запрос на генерацию кода'
+            }
+          });
+        } catch (error) {
+          console.error('Error sending GENERATE_CODE_REQUEST:', error);
+          figma.ui.postMessage({
+            type: 'ERROR',
+            payload: {
+              message: 'Ошибка при отправке запроса на генерацию кода: ' + 
+                      (error instanceof Error ? error.message : String(error))
+            }
+          });
+        }
+        break;
+        
+      case 'REQUEST_GENERATE_RESPONSIVE':
+        try {
+          const selectionData = await getSelectionInfo();
+          if (!selectionData.hasSelection) {
+            figma.ui.postMessage({ 
+              type: 'ERROR', 
+              payload: { message: 'No elements selected' }
+            });
+            return;
+          }
+          
+          figma.ui.postMessage({ 
+            type: 'SELECTION_DATA', 
+            payload: {
+              tool: 'responsive',
+              data: selectionData
+            }
+          });
+        } catch (error) {
+          figma.ui.postMessage({ 
+            type: 'ERROR', 
+            payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
+          });
+        }
+        break;
+        
+      case 'REQUEST_GENERATE_VARIANTS':
+        try {
+          const selectionData = await getSelectionInfo();
+          if (!selectionData.hasSelection) {
+            figma.ui.postMessage({ 
+              type: 'ERROR', 
+              payload: { message: 'No elements selected' }
+            });
+            return;
+          }
+          
+          figma.ui.postMessage({ 
+            type: 'SELECTION_DATA', 
+            payload: {
+              tool: 'variants',
+              data: selectionData
+            }
+          });
+        } catch (error) {
+          figma.ui.postMessage({ 
+            type: 'ERROR', 
+            payload: { message: 'Failed to get selection data: ' + (error instanceof Error ? error.message : String(error)) }
+          });
+        }
+        break;
+        
+      case 'UPDATE_SETTINGS':
+        try {
+          await saveSettings(msg.payload);
+          figma.ui.postMessage({ type: 'SETTINGS_UPDATED' });
+        } catch (error) {
+          figma.ui.postMessage({ 
+            type: 'ERROR', 
+            payload: { message: 'Failed to save settings' }
+          });
+        }
+        break;
+        
+      case 'GET_SETTINGS':
+        try {
+          const settings = await loadSettings();
+          figma.ui.postMessage({ 
+            type: 'SETTINGS', 
+            payload: settings 
+          });
+        } catch (error) {
+          figma.ui.postMessage({ 
+            type: 'ERROR', 
+            payload: { message: 'Failed to load settings' }
+          });
+        }
+        break;
+        
+      default:
+        console.log("Unknown message type:", message.type);
+    }
+  } catch (error) {
+    console.error("Error handling message:", error);
+    
+    // Отправляем ошибку в UI
+    figma.ui.postMessage({
+      type: "ERROR",
+      message: "Error handling message: " + (error instanceof Error ? error.message : String(error))
+    });
   }
 };
 
@@ -648,4 +779,36 @@ function processSelectedNode(node: SceneNode): any {
       error: 'Failed to process node'
     };
   }
-} 
+}
+
+// Закрытие соединения при закрытии плагина
+figma.on("close", () => {
+  console.log("Plugin closing, disconnecting from server");
+  eventService.disconnect();
+});
+
+// Загрузка настроек из локального хранилища
+const loadSettings = async () => {
+  try {
+    const settings = await figma.clientStorage.getAsync('serverSettings');
+    if (settings) {
+      serverSettings = { ...DEFAULT_SETTINGS, ...settings };
+    }
+    return serverSettings;
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    return DEFAULT_SETTINGS;
+  }
+};
+
+// Сохранение настроек в локальное хранилище
+const saveSettings = async (settings: Partial<ServerSettings>) => {
+  try {
+    serverSettings = { ...serverSettings, ...settings };
+    await figma.clientStorage.setAsync('serverSettings', serverSettings);
+    return true;
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return false;
+  }
+}; 

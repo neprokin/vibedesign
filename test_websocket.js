@@ -1,88 +1,82 @@
 const WebSocket = require('ws');
 
-// Адрес вашего WebSocket сервера
-const serverUrl = 'ws://localhost:8766';
+// Адрес WebSocket сервера
+const serverUrl = 'ws://localhost:8768';
+console.log(`Connecting to server at ${serverUrl}...`);
 
-// Создаем соединение
-console.log(`Подключение к серверу: ${serverUrl}`);
+// Создаем WebSocket соединение
 const ws = new WebSocket(serverUrl);
 
-// Вывод состояния соединения
-function logState(ws) {
-    const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
-    console.log(`Состояние соединения: ${states[ws.readyState]} (${ws.readyState})`);
-}
-
-// Проверка состояния каждую секунду
-const stateInterval = setInterval(() => {
-    if (ws) {
-        logState(ws);
-    }
-}, 1000);
-
-// Обработка открытия соединения
-ws.on('open', function() {
-    console.log('Соединение установлено успешно!');
-    logState(ws);
+// Обработчик открытия соединения
+ws.onopen = function() {
+    console.log('Connected to server');
     
-    // Отправляем тестовое сообщение
-    const testMessage = { 
-        type: 'PING', 
-        payload: { time: new Date().toISOString() } 
-    };
-    
-    console.log(`Отправка сообщения: ${JSON.stringify(testMessage)}`);
-    ws.send(JSON.stringify(testMessage));
-    
-    // Отправляем еще одно сообщение через 2 секунды
-    setTimeout(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-            const testMessage2 = { 
-                type: 'ECHO', 
-                payload: { message: 'Привет, сервер!' } 
-            };
-            console.log(`Отправка второго сообщения: ${JSON.stringify(testMessage2)}`);
-            ws.send(JSON.stringify(testMessage2));
+    // Отправка PING сообщения для проверки соединения
+    console.log('Sending PING message...');
+    ws.send(JSON.stringify({
+        type: 'PING',
+        payload: {
+            time: new Date().toISOString()
         }
-    }, 2000);
+    }));
     
-    // Закрываем соединение через 10 секунд
+    // Через 2 секунды отправляем запрос на генерацию кода
     setTimeout(() => {
-        console.log('Закрываем соединение...');
-        clearInterval(stateInterval);
-        ws.close(1000, 'Тест завершен');
-    }, 10000);
-});
+        console.log('Sending GENERATE_CODE_REQUEST...');
+        ws.send(JSON.stringify({
+            type: 'GENERATE_CODE_REQUEST',
+            payload: {
+                designData: {
+                    name: 'TestComponent',
+                    type: 'FRAME',
+                    width: 200,
+                    height: 100,
+                    backgroundColor: '#FFFFFF',
+                    children: []
+                },
+                framework: 'react',
+                cssFramework: 'tailwind',
+                componentName: 'TestComponent',
+                responsive: true
+            }
+        }));
+    }, 2000);
+};
 
-// Обработка сообщений от сервера
-ws.on('message', function(data) {
+// Обработчик сообщений
+ws.onmessage = function(event) {
     try {
-        const message = JSON.parse(data);
-        console.log('Получено сообщение от сервера:', message);
-    } catch (error) {
-        console.log('Получено сообщение (не JSON):', data.toString());
+        const message = JSON.parse(event.data);
+        console.log('Received message:', message.type);
+        console.log('Payload:', JSON.stringify(message.payload, null, 2));
+        
+        // Если получили ответ на генерацию кода, закрываем соединение
+        if (message.type === 'GENERATE_CODE_COMPLETE') {
+            console.log('Code generation complete, closing connection in 1 second...');
+            setTimeout(() => {
+                ws.close();
+                process.exit(0);
+            }, 1000);
+        }
+    } catch (e) {
+        console.error('Error processing message:', e);
     }
-});
+};
 
-// Обработка закрытия соединения
-ws.on('close', function(code, reason) {
-    console.log(`Соединение закрыто, код: ${code}, причина: ${reason || 'Не указана'}`);
-    clearInterval(stateInterval);
+// Обработчик ошибок
+ws.onerror = function(error) {
+    console.error('WebSocket error:', error);
+};
+
+// Обработчик закрытия соединения
+ws.onclose = function(event) {
+    console.log(`Connection closed with code ${event.code}, reason: ${event.reason || 'No reason'}`);
     process.exit(0);
-});
+};
 
-// Обработка ошибок
-ws.on('error', function(error) {
-    console.error('Ошибка WebSocket:', error.message);
-    clearInterval(stateInterval);
-    process.exit(1);
-});
-
-// Таймаут на подключение - 10 секунд
-setTimeout(() => {
-    if (ws.readyState !== WebSocket.OPEN) {
-        console.error('Не удалось подключиться к серверу в течение 10 секунд');
-        clearInterval(stateInterval);
-        process.exit(1);
-    }
-}, 10000); 
+// Ловим сигналы прерывания для корректного завершения
+process.on('SIGINT', () => {
+    console.log('Interrupted, closing connection...');
+    ws.close();
+    process.exit(0);
+}); 
