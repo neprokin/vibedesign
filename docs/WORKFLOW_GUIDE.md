@@ -249,8 +249,8 @@
 ### Шаг 1: Подготовка среды
 
 1. Запустите MCP-сервер:
-   ```bash
-   cd mcp_server
+     ```bash
+     cd mcp_server
    python server.py
    ```
 
